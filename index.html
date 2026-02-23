@@ -1,71 +1,29 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html>
 <head>
-  <title>MXD Mathematics AI</title>
-  <meta charset="UTF-8">
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-  <style>
-    body { font-family: Arial; padding: 20px; }
-    #response { margin-top: 20px; }
-    .step { margin-bottom: 8px; }
-    .answer { font-weight: bold; font-size: 18px; margin-top: 10px; }
-  </style>
+  <title>MXD Math AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<h2>MXD Mathematics AI</h2>
+<div class="chat-container">
+  <h2>MXD Mathematics AI</h2>
 
-<textarea id="question" rows="4" cols="50"></textarea><br><br>
-<button onclick="solve()">Solve</button>
+  <div id="chat-box"></div>
 
-<div id="response"></div>
+  <input type="file" id="fileInput">
+  <textarea id="message" placeholder="Ask any math question..."></textarea>
+  <button onclick="sendMessage()">Send</button>
+</div>
 
-<script>
-async function solve() {
+<canvas id="graphCanvas"></canvas>
 
-    const question = document.getElementById("question").value;
-    const responseDiv = document.getElementById("response");
-
-    responseDiv.innerHTML = "Solving...";
-
-    const res = await fetch("YOUR_API_URL_HERE", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            question: question,
-            sessionId: "web-session"
-        })
-    });
-
-    const data = await res.json();
-
-    if (data.error) {
-        responseDiv.innerHTML = "Error: " + data.error;
-        return;
-    }
-
-    let html = "";
-
-    if (data.steps && Array.isArray(data.steps)) {
-        html += "<h3>Steps:</h3>";
-        data.steps.forEach(step => {
-            html += `<div class="step">• ${step}</div>`;
-        });
-    }
-
-    if (data.final_answer) {
-        html += `<div class="answer">Final Answer: ${data.final_answer}</div>`;
-    }
-
-    responseDiv.innerHTML = html;
-
-    if (window.MathJax) {
-        MathJax.typeset();
-    }
-}
-</script>
-
+<script src="app.js"></script>
 </body>
 </html>
