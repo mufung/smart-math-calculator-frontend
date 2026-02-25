@@ -1,4 +1,4 @@
-  const API_URL = "YOUR_API_GATEWAY_URL";
+  const API_URL = "https://7gq8pq0p7a.execute-api.us-west-1.amazonaws.com/prod";
 
 async function sendMessage() {
     const input = document.getElementById("user-input");
@@ -70,3 +70,4 @@ function scrollBottom() {
     const chatBox = document.getElementById("chat-box");
     chatBox.scrollTop = chatBox.scrollHeight;
 }
+
