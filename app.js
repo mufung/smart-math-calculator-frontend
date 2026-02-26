@@ -1,4 +1,4 @@
-const CHAT_API = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
+ const CHAT_API = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
 const GRAPH_API = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/graph";
 
 let sessionId = localStorage.getItem("sessionId");
@@ -13,17 +13,14 @@ async function sendMessage() {
 
     showTyping();
 
-    // Detect graph intent
     const isGraphRequest = /graph|plot|draw/i.test(message);
 
     try {
-
         if (isGraphRequest) {
             await handleGraphRequest(message);
         } else {
             await handleChatRequest(message);
         }
-
     } catch (error) {
         removeTyping();
         addMessage("Error: Could not connect to the server.", "assistant");
@@ -41,18 +38,26 @@ async function handleChatRequest(message) {
         })
     });
 
-    const data = await res.json();
+    let data = await res.json();
 
-    sessionId = data.sessionId;
-    localStorage.setItem("sessionId", sessionId);
+    // Handle Lambda proxy response format
+    if (data.body) {
+        data = JSON.parse(data.body);
+    }
+
+    sessionId = data.sessionId || sessionId;
+    if (sessionId) {
+        localStorage.setItem("sessionId", sessionId);
+    }
 
     removeTyping();
-    addMessage(data.reply, "assistant");
+
+    const replyText = data.reply || data.message || "No response";
+    addMessage(replyText, "assistant");
 }
 
 async function handleGraphRequest(message) {
 
-    // Extract math expression after "of"
     let expression = message;
     const match = message.match(/of (.*)/i);
     if (match) expression = match[1];
@@ -65,10 +70,19 @@ async function handleGraphRequest(message) {
         })
     });
 
-    const data = await res.json();
+    let data = await res.json();
+
+    if (data.body) {
+        data = JSON.parse(data.body);
+    }
 
     removeTyping();
-    addGraphMessage(data.x, data.y);
+
+    if (data.x && data.y) {
+        addGraphMessage(data.x, data.y);
+    } else {
+        addMessage("Could not generate graph.", "assistant");
+    }
 }
 
 function addMessage(text, role) {
@@ -99,7 +113,6 @@ function addGraphMessage(xValues, yValues) {
         data: {
             labels: xValues,
             datasets: [{
-                label: "Graph",
                 data: yValues,
                 borderWidth: 2,
                 fill: false,
@@ -108,17 +121,7 @@ function addGraphMessage(xValues, yValues) {
         },
         options: {
             responsive: true,
-            plugins: {
-                legend: { display: false }
-            },
-            scales: {
-                x: {
-                    ticks: { color: "white" }
-                },
-                y: {
-                    ticks: { color: "white" }
-                }
-            }
+            plugins: { legend: { display: false } }
         }
     });
 }
