@@ -66,3 +66,7 @@ button {
   background: #5f2eea;
   color: white;
 }
+
+canvas {
+  max-width: 100%;
+}
