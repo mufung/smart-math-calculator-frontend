@@ -39,27 +39,18 @@ async function handleChat(message) {
     });
 
     let data = await res.json();
-
-    // Handle API Gateway proxy format
-    if (data.body) {
-        data = JSON.parse(data.body);
-    }
+    if (data.body) data = JSON.parse(data.body);
 
     sessionId = data.sessionId || sessionId;
-    if (sessionId) {
-        localStorage.setItem("sessionId", sessionId);
-    }
+    if (sessionId) localStorage.setItem("sessionId", sessionId);
 
     removeTyping();
-
     addMessage(data.reply || "No response", "assistant");
 }
 
 async function handleGraph(message) {
 
     let expression = message;
-
-    // Extract expression after "of"
     const match = message.match(/of (.*)/i);
     if (match) expression = match[1];
 
@@ -72,10 +63,7 @@ async function handleGraph(message) {
     });
 
     let data = await res.json();
-
-    if (data.body) {
-        data = JSON.parse(data.body);
-    }
+    if (data.body) data = JSON.parse(data.body);
 
     removeTyping();
 
@@ -102,6 +90,9 @@ function addGraph(xValues, yValues) {
 
     const wrapper = document.createElement("div");
     wrapper.className = "message assistant";
+    wrapper.style.background = "#ffffff";
+    wrapper.style.padding = "15px";
+    wrapper.style.borderRadius = "12px";
 
     const canvas = document.createElement("canvas");
     wrapper.appendChild(canvas);
@@ -114,15 +105,55 @@ function addGraph(xValues, yValues) {
         data: {
             labels: xValues,
             datasets: [{
+                label: "f(x)",
                 data: yValues,
-                borderWidth: 2,
-                fill: false,
-                tension: 0.2
+                borderColor: "#1abc9c",
+                borderWidth: 3,
+                pointRadius: 0,
+                tension: 0.3,
+                fill: false
+            },
+            {
+                label: "Origin",
+                data: xValues.map((x, i) => x === 0 ? yValues[i] : null),
+                pointBackgroundColor: "red",
+                pointRadius: 6,
+                showLine: false
             }]
         },
         options: {
             responsive: true,
-            plugins: { legend: { display: false } }
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: "#d0e6f7"
+                    },
+                    ticks: {
+                        color: "#333"
+                    },
+                    border: {
+                        display: true,
+                        color: "#000",
+                        width: 2
+                    }
+                },
+                y: {
+                    grid: {
+                        color: "#d0e6f7"
+                    },
+                    ticks: {
+                        color: "#333"
+                    },
+                    border: {
+                        display: true,
+                        color: "#000",
+                        width: 2
+                    }
+                }
+            }
         }
     });
 }
