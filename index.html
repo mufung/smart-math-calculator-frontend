@@ -1,22 +1,20 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
-    <title>Math AI Chat</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>Math AI</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="chat-container">
-    <div id="chat-box"></div>
+<div class="app">
+  <div id="chatContainer"></div>
 
-    <div class="input-area">
-        <input type="text" id="user-input" placeholder="Type message or x^2 ..." />
-        <button onclick="sendMessage()">Send</button>
-    </div>
+  <div class="inputArea">
+    <input id="messageInput" placeholder="Ask anything..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
 </div>
 
 <script src="app.js"></script>
-
 </body>
 </html>
