@@ -6,7 +6,6 @@
 <title>HighupWeb Academy | Math AI - Project MXP</title>
 
 <link rel="stylesheet" href="style.css">
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
@@ -16,7 +15,6 @@
 
 <div class="layout">
 
-    <!-- SIDEBAR -->
     <aside class="sidebar">
         <div class="logo-section">
             <h2>HIGHUPWEB</h2>
@@ -42,21 +40,17 @@
         </div>
     </aside>
 
-    <!-- MAIN CONTENT -->
     <div class="main">
 
-        <!-- HEADER -->
         <header class="topbar">
             <h1>Math AI Assistant</h1>
             <p>Project MXP • HighupWeb Academy • Cameroon</p>
         </header>
 
-        <!-- CHAT APP (UNCHANGED IDs INSIDE) -->
         <div class="app">
 
             <div id="chatContainer"></div>
 
-            <!-- Typing Indicator -->
             <div id="typingIndicator" class="typing hidden">
                 <span></span><span></span><span></span>
             </div>
@@ -74,7 +68,6 @@
 <script src="app.js"></script>
 
 <script>
-/* Dark / Light Toggle */
 const toggle = document.getElementById("themeToggle");
 toggle.addEventListener("change", () => {
     document.body.classList.toggle("light-mode");
