@@ -23,7 +23,7 @@ async function sendMessage() {
         }
     } catch (error) {
         removeTyping();
-        addMessage("Error: Could not connect to the server.", "assistant");
+        addMessage("Server error.", "assistant");
         console.error(error);
     }
 }
@@ -63,7 +63,7 @@ async function handleGraph(message) {
     removeTyping();
 
     if (data.x && data.y) {
-        addGraph(data.x, data.y);
+        addGraph(data);
     } else {
         addMessage("Could not generate graph.", "assistant");
     }
@@ -71,60 +71,49 @@ async function handleGraph(message) {
 
 function addMessage(text, role) {
     const container = document.getElementById("chatContainer");
-
     const div = document.createElement("div");
     div.className = "message " + role;
     div.innerText = text;
-
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
 }
 
-function addGraph(xValues, yValues) {
+function addGraph(data) {
 
     const container = document.getElementById("chatContainer");
 
     const wrapper = document.createElement("div");
     wrapper.className = "message assistant";
     wrapper.style.background = "#ffffff";
-    wrapper.style.padding = "20px";
-    wrapper.style.borderRadius = "16px";
+    wrapper.style.padding = "25px";
+    wrapper.style.borderRadius = "20px";
 
     const canvas = document.createElement("canvas");
+    canvas.height = 500;
     wrapper.appendChild(canvas);
 
     container.appendChild(wrapper);
     container.scrollTop = container.scrollHeight;
 
-    const points = xValues.map((x, i) => ({
+    const points = data.x.map((x, i) => ({
         x: x,
-        y: yValues[i]
+        y: data.y[i]
     }));
 
     new Chart(canvas, {
         type: "line",
         data: {
-            datasets: [
-                {
-                    data: points,
-                    borderColor: "#16a085",
-                    borderWidth: 4,
-                    pointRadius: 0,
-                    tension: 0.3
-                },
-                {
-                    label: "Origin",
-                    data: [{ x: 0, y: 0 }],
-                    backgroundColor: "red",
-                    pointRadius: 8,
-                    showLine: false
-                }
-            ]
+            datasets: [{
+                data: points,
+                borderColor: "#2c7be5",
+                borderWidth: 3,
+                pointRadius: 0,
+                tension: 0.25
+            }]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: true,
-            aspectRatio: 2,
+            maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
                 x: {
@@ -132,34 +121,30 @@ function addGraph(xValues, yValues) {
                     min: -10,
                     max: 10,
                     grid: {
-                        color: "#bfe8f5",
-                        lineWidth: 1
+                        color: "#e0e0e0"
                     },
                     ticks: {
-                        stepSize: 2,
-                        color: "#000"
+                        stepSize: 1
                     },
                     border: {
                         display: true,
                         color: "#000",
-                        width: 4
+                        width: 3
                     }
                 },
                 y: {
-                    min: -10,
-                    max: 100,
+                    min: data.y_min,
+                    max: data.y_max,
                     grid: {
-                        color: "#bfe8f5",
-                        lineWidth: 1
+                        color: "#e0e0e0"
                     },
                     ticks: {
-                        stepSize: 20,
-                        color: "#000"
+                        stepSize: (data.y_max - data.y_min) / 10
                     },
                     border: {
                         display: true,
                         color: "#000",
-                        width: 4
+                        width: 3
                     }
                 }
             }
