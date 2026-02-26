@@ -1,73 +1,62 @@
-  const API_URL = "https://7gq8pq0p7a.execute-api.us-west-1.amazonaws.com/prod";
+ const API_URL = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
+
+let sessionId = localStorage.getItem("sessionId");
 
 async function sendMessage() {
-    const input = document.getElementById("user-input");
+    const input = document.getElementById("messageInput");
     const message = input.value.trim();
-
     if (!message) return;
 
-    addUserMessage(message);
+    addMessage(message, "user");
     input.value = "";
 
-    const response = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message })
-    });
+    showTyping();
 
-    const data = await response.json();
+    try {
+        const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                message,
+                sessionId
+            })
+        });
 
-    if (data.type === "graph") {
-        addBotGraph(data.graph_data, data.expression);
-    } else {
-        addBotMessage(data.response);
+        const data = await res.json();
+
+        sessionId = data.sessionId;
+        localStorage.setItem("sessionId", sessionId);
+
+        removeTyping();
+        addMessage(data.reply, "assistant");
+    } catch (error) {
+        removeTyping();
+        addMessage("Error: Could not connect to the server.", "assistant");
+        console.error(error);
     }
 }
 
-function addUserMessage(text) {
-    const chatBox = document.getElementById("chat-box");
-    chatBox.innerHTML += `<div class="message user">${text}</div>`;
-    scrollBottom();
+function addMessage(text, role) {
+    const container = document.getElementById("chatContainer");
+
+    const div = document.createElement("div");
+    div.className = "message " + role;
+    div.innerText = text;
+
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
 }
 
-function addBotMessage(text) {
-    const chatBox = document.getElementById("chat-box");
-    chatBox.innerHTML += `<div class="message bot">${text}</div>`;
-    scrollBottom();
+function showTyping() {
+    const container = document.getElementById("chatContainer");
+    const typing = document.createElement("div");
+    typing.id = "typing";
+    typing.className = "message assistant";
+    typing.innerText = "Typing...";
+    container.appendChild(typing);
 }
 
-function addBotGraph(graphData, expression) {
-    const chatBox = document.getElementById("chat-box");
-
-    const canvasId = "chart-" + Date.now();
-
-    chatBox.innerHTML += `
-        <div class="message bot">
-            <div>Graph of ${expression}</div>
-            <canvas id="${canvasId}"></canvas>
-        </div>
-    `;
-
-    const ctx = document.getElementById(canvasId).getContext("2d");
-
-    new Chart(ctx, {
-        type: "line",
-        data: {
-            labels: graphData.x,
-            datasets: [{
-                label: expression,
-                data: graphData.y,
-                borderWidth: 2,
-                fill: false
-            }]
-        }
-    });
-
-    scrollBottom();
+function removeTyping() {
+    const typing = document.getElementById("typing");
+    if (typing) typing.remove();
 }
-
-function scrollBottom() {
-    const chatBox = document.getElementById("chat-box");
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
