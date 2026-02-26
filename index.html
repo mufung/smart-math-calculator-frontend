@@ -1,23 +1,59 @@
-<!DOCTYPE html>
-<html>
+ <!DOCTYPE html>
+<html lang="en">
 <head>
-  <title>Math AI</title>
+  <meta charset="UTF-8">
+  <title>HighupWeb Math AI | Project MXP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Project Branding Meta -->
+  <meta name="description" content="HighupWeb Academy Math AI - Project MXP. Intelligent mathematics assistant powered by AI. Built in Cameroon.">
+  <meta name="author" content="HighupWeb Academy - Mufung Angelbell Mbuyeh">
+
   <link rel="stylesheet" href="style.css">
 
-  <!-- ADD THIS LINE -->
+  <!-- Chart.js (DO NOT REMOVE) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
 
-<div class="app">
-  <div id="chatContainer"></div>
-
-  <div class="inputArea">
-    <input id="messageInput" placeholder="Ask anything..." />
-    <button onclick="sendMessage()">Send</button>
-  </div>
+<!-- Background Decorative Layer -->
+<div class="background-layer">
+  <div class="glow-circle glow1"></div>
+  <div class="glow-circle glow2"></div>
+  <div class="watermark">HIGHUPWEB</div>
+  <div class="watermark sub">PROJECT MXP</div>
 </div>
 
+<!-- Main Application -->
+<div class="app">
+
+  <!-- Header Section -->
+  <div class="app-header">
+    <div class="brand">
+      <h1>Math AI</h1>
+      <p>HighupWeb Academy • Intelligent Learning Assistant</p>
+    </div>
+  </div>
+
+  <!-- Chat Container (UNCHANGED ID) -->
+  <div id="chatContainer"></div>
+
+  <!-- Input Area (UNCHANGED STRUCTURE) -->
+  <div class="inputArea">
+    <input id="messageInput" placeholder="Ask anything about mathematics..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <!-- Footer Info -->
+  <div class="app-footer">
+    <p>© 2026 HighupWeb Academy • Built in Cameroon • Douala | Yaoundé</p>
+  </div>
+
+</div>
+
+<!-- App Logic (DO NOT TOUCH) -->
 <script src="app.js"></script>
+
 </body>
 </html>
