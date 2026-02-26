@@ -1,4 +1,4 @@
- const CHAT_API = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
+const CHAT_API = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
 const GRAPH_API = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/graph";
 
 let sessionId = localStorage.getItem("sessionId");
@@ -17,9 +17,9 @@ async function sendMessage() {
 
     try {
         if (isGraphRequest) {
-            await handleGraphRequest(message);
+            await handleGraph(message);
         } else {
-            await handleChatRequest(message);
+            await handleChat(message);
         }
     } catch (error) {
         removeTyping();
@@ -28,7 +28,7 @@ async function sendMessage() {
     }
 }
 
-async function handleChatRequest(message) {
+async function handleChat(message) {
     const res = await fetch(CHAT_API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -40,7 +40,7 @@ async function handleChatRequest(message) {
 
     let data = await res.json();
 
-    // Handle Lambda proxy response format
+    // Handle API Gateway proxy format
     if (data.body) {
         data = JSON.parse(data.body);
     }
@@ -52,13 +52,14 @@ async function handleChatRequest(message) {
 
     removeTyping();
 
-    const replyText = data.reply || data.message || "No response";
-    addMessage(replyText, "assistant");
+    addMessage(data.reply || "No response", "assistant");
 }
 
-async function handleGraphRequest(message) {
+async function handleGraph(message) {
 
     let expression = message;
+
+    // Extract expression after "of"
     const match = message.match(/of (.*)/i);
     if (match) expression = match[1];
 
@@ -79,7 +80,7 @@ async function handleGraphRequest(message) {
     removeTyping();
 
     if (data.x && data.y) {
-        addGraphMessage(data.x, data.y);
+        addGraph(data.x, data.y);
     } else {
         addMessage("Could not generate graph.", "assistant");
     }
@@ -96,7 +97,7 @@ function addMessage(text, role) {
     container.scrollTop = container.scrollHeight;
 }
 
-function addGraphMessage(xValues, yValues) {
+function addGraph(xValues, yValues) {
     const container = document.getElementById("chatContainer");
 
     const wrapper = document.createElement("div");
