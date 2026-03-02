@@ -1,184 +1,175 @@
- {
-margin: 0;
-padding: 0;
-box-sizing: border-box;
+/* RESET */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
-
 
 body {
-font-family: 'Segoe UI', sans-serif;
-background: linear-gradient(135deg, #050816, #0a0f2c);
-color: white;
-min-height: 100vh; /* FIXED /
-overflow-y: auto;  / FIXED */
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #050816, #0a0f2c);
+    color: white;
+    min-height: 100vh;
+    overflow-y: auto;
 }
 
-/* BACKGROUND CLOUD INSPIRED GLOW */
 .background-overlay {
-position: fixed;
-width: 100%;
-height: 100%;
-background: radial-gradient(circle at 20% 20%, rgba(0,198,255,0.2), transparent 40%),
-radial-gradient(circle at 80% 80%, rgba(162,89,255,0.2), transparent 40%);
-z-index: 0;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 20% 20%, rgba(0,198,255,0.2), transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(162,89,255,0.2), transparent 40%);
+    z-index: 0;
 }
 
-/* LAYOUT /
 .layout {
-display: flex;
-min-height: 100vh; / FIXED */
-position: relative;
-z-index: 2;
+    display: flex;
+    min-height: 100vh;
+    position: relative;
+    z-index: 2;
 }
 
-/* SIDEBAR */
 .sidebar {
-width: 260px;
-background: rgba(10,15,40,0.95);
-padding: 30px 20px;
-display: flex;
-flex-direction: column;
-justify-content: space-between;
-border-right: 1px solid rgba(255,255,255,0.05);
+    width: 260px;
+    background: rgba(10,15,40,0.95);
+    padding: 30px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border-right: 1px solid rgba(255,255,255,0.05);
 }
 
 .logo-section h2 {
-font-size: 20px;
-color: #00c6ff;
+    font-size: 20px;
+    color: #00c6ff;
 }
-
 .logo-section span {
-font-size: 13px;
-opacity: 0.6;
+    font-size: 13px;
+    opacity: 0.6;
 }
 
 .sidebar ul {
-list-style: none;
-margin-top: 40px;
+    list-style: none;
+    margin-top: 40px;
 }
 
 .sidebar li {
-padding: 12px 10px;
-border-radius: 8px;
-cursor: pointer;
-transition: 0.3s;
+    padding: 12px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.3s;
 }
 
 .sidebar li:hover,
 .sidebar li.active {
-background: rgba(0,198,255,0.15);
+    background: rgba(0,198,255,0.15);
 }
 
 /* MAIN */
 .main {
-flex: 1;
-display: flex;
-flex-direction: column;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
-/* TOPBAR */
 .topbar {
-padding: 25px;
-border-bottom: 1px solid rgba(255,255,255,0.05);
+    padding: 25px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 
 .topbar h1 {
-font-size: 24px;
+    font-size: 24px;
 }
 
 .topbar p {
-font-size: 13px;
-opacity: 0.6;
+    font-size: 13px;
+    opacity: 0.6;
 }
 
 /* CHAT APP */
 .app {
-flex: 1;
-display: flex;
-flex-direction: column;
-padding: 25px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 25px;
 }
 
-/* CHAT CONTAINER /
 #chatContainer {
-flex: 1;
-overflow-y: auto;
-padding-right: 10px;
-scroll-behavior: smooth; / ADDED */
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 10px;
+    scroll-behavior: smooth;
 }
 
-/* MESSAGE */
 .message {
-padding: 14px 18px;
-margin-bottom: 12px;
-border-radius: 20px;
-max-width: 70%;
-animation: fadeIn 0.3s ease;
+    padding: 14px 18px;
+    margin-bottom: 12px;
+    border-radius: 20px;
+    max-width: 70%;
+    animation: fadeIn 0.3s ease;
 }
 
 .user {
-background: linear-gradient(135deg, #7b3ff2, #a259ff);
-align-self: flex-end;
+    background: linear-gradient(135deg, #7b3ff2, #a259ff);
+    align-self: flex-end;
 }
 
 .assistant {
-background: rgba(255,255,255,0.1);
-align-self: flex-start;
+    background: rgba(255,255,255,0.1);
+    align-self: flex-start;
 }
 
-/* FIX FOR CHARTS / IMAGES */
 .message img,
 .message canvas {
-max-width: 100%;
-height: auto;
-border-radius: 12px;
-margin-top: 10px;
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    margin-top: 10px;
 }
 
-/* INPUT */
 .inputArea {
-display: flex;
-margin-top: 15px;
+    display: flex;
+    margin-top: 15px;
 }
 
 input {
-flex: 1;
-padding: 14px;
-border-radius: 30px;
-border: none;
-background: rgba(255,255,255,0.08);
-color: white;
-outline: none;
+    flex: 1;
+    padding: 14px;
+    border-radius: 30px;
+    border: none;
+    background: rgba(255,255,255,0.08);
+    color: white;
+    outline: none;
 }
 
 button {
-margin-left: 10px;
-padding: 14px 25px;
-border-radius: 30px;
-border: none;
-background: linear-gradient(135deg, #00c6ff, #a259ff);
-color: white;
-cursor: pointer;
-transition: 0.3s;
+    margin-left: 10px;
+    padding: 14px 25px;
+    border-radius: 30px;
+    border: none;
+    background: linear-gradient(135deg, #00c6ff, #a259ff);
+    color: white;
+    cursor: pointer;
+    transition: 0.3s;
 }
 
 button:hover {
-transform: scale(1.05);
+    transform: scale(1.05);
 }
 
 /* TYPING INDICATOR */
 .typing {
-display: flex;
-gap: 5px;
-margin-bottom: 10px;
+    display: flex;
+    gap: 5px;
+    margin-bottom: 10px;
 }
 
 .typing span {
-width: 8px;
-height: 8px;
-background: #00c6ff;
-border-radius: 50%;
-animation: blink 1.4s infinite both;
+    width: 8px;
+    height: 8px;
+    background: #00c6ff;
+    border-radius: 50%;
+    animation: blink 1.4s infinite both;
 }
 
 .typing span:nth-child(2) { animation-delay: .2s; }
@@ -187,41 +178,38 @@ animation: blink 1.4s infinite both;
 .hidden { display: none; }
 
 @keyframes blink {
-0% { opacity: .2; }
-20% { opacity: 1; }
-100% { opacity: .2; }
+    0% { opacity: .2; }
+    20% { opacity: 1; }
+    100% { opacity: .2; }
 }
 
 @keyframes fadeIn {
-from { opacity: 0; transform: translateY(8px); }
-to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* LIGHT MODE */
 .light-mode {
-background: #f4f6fb;
-color: #111;
+    background: #f4f6fb;
+    color: #111;
 }
 
 .light-mode .sidebar {
-background: white;
-color: black;
+    background: white;
+    color: black;
 }
 
 .light-mode .assistant {
-background: #eaeaea;
-color: black;
+    background: #eaeaea;
+    color: black;
 }
 
 .light-mode input {
-background: #eaeaea;
-color: black;
+    background: #eaeaea;
+    color: black;
 }
 
 /* RESPONSIVE */
 @media(max-width: 900px) {
-.sidebar {
-display: none;
+    .sidebar { display: none; }
 }
-
-
