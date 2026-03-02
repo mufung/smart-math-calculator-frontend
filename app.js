@@ -1,5 +1,4 @@
- const CHAT_API = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
-const GRAPH_API = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/graph";
+  const CHAT_API = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
 
 let sessionId = localStorage.getItem("sessionId");
 
@@ -16,8 +15,7 @@ async function sendMessage() {
     const isGraphRequest = /graph|plot|draw|circle|square|triangle|angle/i.test(message);
 
     try {
-        if (isGraphRequest) await handleGraph(message);
-        else await handleChat(message);
+        await handleChat(message);
     } catch (err) {
         removeTyping();
         addMessage("Server error.", "assistant");
@@ -39,25 +37,13 @@ async function handleChat(message) {
     if (sessionId) localStorage.setItem("sessionId", sessionId);
 
     removeTyping();
+
     addMessage(data.reply || "No response", "assistant");
-}
 
-async function handleGraph(message) {
-    let expression = message.match(/of (.*)/i)?.[1] || message;
-
-    const res = await fetch(GRAPH_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expression })
-    });
-
-    let data = await res.json();
-    if (data.body) data = JSON.parse(data.body);
-
-    removeTyping();
-
-    if (data.x && data.y) addGraph(data);
-    else addMessage("Could not generate graph.", "assistant");
+    // If AI returned diagram/image base64, show it
+    if (data.structured?.image_base64) {
+        addDiagram(data.structured.image_base64);
+    }
 }
 
 function addMessage(text, role) {
@@ -69,7 +55,7 @@ function addMessage(text, role) {
     container.scrollTop = container.scrollHeight;
 }
 
-function addGraph(data) {
+function addDiagram(base64Image) {
     const container = document.getElementById("chatContainer");
     const wrapper = document.createElement("div");
     wrapper.className = "message assistant";
@@ -77,11 +63,9 @@ function addGraph(data) {
     wrapper.style.padding = "25px";
     wrapper.style.borderRadius = "20px";
 
-    if (data.image_base64) {
-        const img = document.createElement("img");
-        img.src = `data:image/png;base64,${data.image_base64}`;
-        wrapper.appendChild(img);
-    }
+    const img = document.createElement("img");
+    img.src = `data:image/png;base64,${base64Image}`;
+    wrapper.appendChild(img);
 
     container.appendChild(wrapper);
     container.scrollTop = container.scrollHeight;
