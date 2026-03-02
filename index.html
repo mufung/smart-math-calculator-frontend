@@ -1,79 +1,62 @@
- <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HighupWeb Academy | Math AI - Project MXP</title>
+<!DOCTYPE html>  <html lang="en">  
+<head>  
+<meta charset="UTF-8">  
+<meta name="viewport" content="width=device-width, initial-scale=1.0">  
+<title>HighupWeb Academy | Math AI - Project MXP</title>  <link rel="stylesheet" href="style.css">  
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>  
+</head>  <body>  <div class="background-overlay"></div>  <div class="layout">  <aside class="sidebar">  
+    <div class="logo-section">  
+        <h2>HIGHUPWEB</h2>  
+        <span>Academy AI</span>  
+    </div>  
 
-<link rel="stylesheet" href="style.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
+    <nav>  
+        <ul>  
+            <li class="active">Dashboard</li>  
+            <li>Math AI</li>  
+            <li>Analytics</li>  
+            <li>Students</li>  
+            <li>Admin</li>  
+        </ul>  
+    </nav>  
 
-<body>
+    <div class="theme-toggle">  
+        <label class="switch">  
+            <input type="checkbox" id="themeToggle">  
+            <span class="slider"></span>  
+        </label>  
+        <p>Light Mode</p>  
+    </div>  
+</aside>  
 
-<div class="background-overlay"></div>
+<div class="main">  
 
-<div class="layout">
+    <header class="topbar">  
+        <h1>Math AI Assistant</h1>  
+        <p>Project MXP • HighupWeb Academy • Cameroon</p>  
+    </header>  
 
-    <aside class="sidebar">
-        <div class="logo-section">
-            <h2>HIGHUPWEB</h2>
-            <span>Academy AI</span>
-        </div>
+    <div class="app">  
 
-        <nav>
-            <ul>
-                <li class="active">Dashboard</li>
-                <li>Math AI</li>
-                <li>Analytics</li>
-                <li>Students</li>
-                <li>Admin</li>
-            </ul>
-        </nav>
+        <div id="chatContainer"></div>  
 
-        <div class="theme-toggle">
-            <label class="switch">
-                <input type="checkbox" id="themeToggle">
-                <span class="slider"></span>
-            </label>
-            <p>Light Mode</p>
-        </div>
-    </aside>
+        <div id="typingIndicator" class="typing hidden">  
+            <span></span><span></span><span></span>  
+        </div>  
 
-    <div class="main">
+        <div class="inputArea">  
+            <input id="messageInput" placeholder="Ask any math question..." />  
+            <button onclick="sendMessage()">Send</button>  
+        </div>  
 
-        <header class="topbar">
-            <h1>Math AI Assistant</h1>
-            <p>Project MXP • HighupWeb Academy • Cameroon</p>
-        </header>
+    </div>  
 
-        <div class="app">
-
-            <div id="chatContainer"></div>
-
-            <div id="typingIndicator" class="typing hidden">
-                <span></span><span></span><span></span>
-            </div>
-
-            <div class="inputArea">
-                <input id="messageInput" placeholder="Ask any math question..." />
-                <button onclick="sendMessage()">Send</button>
-            </div>
-
-        </div>
-
-    </div>
 </div>
 
-<script src="app.js"></script>
-
-<script>
-const toggle = document.getElementById("themeToggle");
-toggle.addEventListener("change", () => {
-    document.body.classList.toggle("light-mode");
-});
-</script>
-
-</body>
+</div>  <script src="app.js"></script>  <script>  
+const toggle = document.getElementById("themeToggle");  
+toggle.addEventListener("change", () => {  
+    document.body.classList.toggle("light-mode");  
+});  
+</script>  </body>  
 </html>
-
