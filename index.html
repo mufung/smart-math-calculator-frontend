@@ -11,13 +11,11 @@
 <div class="background-overlay"></div>
 <div class="layout">
 
-  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="logo-section">
       <h2>HIGHUPWEB</h2>
       <span>Academy AI</span>
     </div>
-
     <nav>
       <ul>
         <li class="active">Dashboard</li>
@@ -27,7 +25,6 @@
         <li>Admin</li>
       </ul>
     </nav>
-
     <div class="theme-toggle">
       <label class="switch">
         <input type="checkbox" id="themeToggle">
@@ -37,20 +34,16 @@
     </div>
   </aside>
 
-  <!-- MAIN -->
   <div class="main">
     <header class="topbar">
       <h1>Math AI Assistant</h1>
       <p>Project MXP • HighupWeb Academy • Cameroon</p>
     </header>
-
     <div class="app">
       <div id="chatContainer"></div>
-
       <div id="typingIndicator" class="typing hidden">
         <span></span><span></span><span></span>
       </div>
-
       <div class="inputArea">
         <input id="messageInput" placeholder="Ask any math question..." />
         <button id="sendBtn">Send</button>
@@ -59,14 +52,12 @@
   </div>
 
 </div>
-
 <script src="app.js"></script>
 <script>
 const toggle = document.getElementById("themeToggle");
 toggle.addEventListener("change", () => {
     document.body.classList.toggle("light-mode");
 });
-
 const sendBtn = document.getElementById("sendBtn");
 sendBtn.addEventListener("click", () => sendMessage());
 document.getElementById("messageInput").addEventListener("keypress", (e) => {
