@@ -7,9 +7,10 @@ const HISTORY_API  = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/pro
 let sessionId = localStorage.getItem("sessionId") || generateSessionId();
 localStorage.setItem("sessionId", sessionId);
 
-// ── ON PAGE LOAD ──────────────────────────────────────────────────────────────
-window.addEventListener("load", () => {
-    loadSessions();
+// ── PAGE LOAD ─────────────────────────────────────────────────────────────────
+window.addEventListener("load", async () => {
+    await loadSessions();
+    addMessage("Hello! I am Math AI Assistant. Ask me any math question — algebra, geometry, calculus, trigonometry, statistics and more!", "assistant");
 });
 
 // ── GENERATE SESSION ID ───────────────────────────────────────────────────────
@@ -17,23 +18,28 @@ function generateSessionId() {
     return "session-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
 }
 
-// ── START NEW CHAT ────────────────────────────────────────────────────────────
+// ── NEW CHAT ──────────────────────────────────────────────────────────────────
 function startNewChat() {
     sessionId = generateSessionId();
     localStorage.setItem("sessionId", sessionId);
     document.getElementById("chatContainer").innerHTML = "";
     document.querySelectorAll(".chat-item").forEach(el => el.classList.remove("active-chat"));
-    addMessage("New chat started! Ask me any math question — algebra, geometry, calculus, statistics and more! 🧮", "assistant");
+    addMessage("New chat started! Ask me any math question!", "assistant");
 }
 
 // ── LOAD ALL SESSIONS ─────────────────────────────────────────────────────────
 async function loadSessions() {
-    try {
-        const res  = await fetch(SESSIONS_API);
-        const data = await res.json();
-        const list = document.getElementById("chatList");
-        if (!list) return;
+    const list = document.getElementById("chatList");
+    if (!list) return;
 
+    try {
+        list.innerHTML = `<li class="loading-chats">Loading chats...</li>`;
+
+        const res  = await fetch(SESSIONS_API);
+        const text = await res.text();
+        console.log("Sessions raw response:", text);
+
+        const data = JSON.parse(text);
         list.innerHTML = "";
 
         const sessions = data.sessions || [];
@@ -44,8 +50,8 @@ async function loadSessions() {
         }
 
         sessions.forEach(session => {
-            const li = document.createElement("li");
-            li.className = "chat-item";
+            const li       = document.createElement("li");
+            li.className   = "chat-item";
             li.dataset.sid = session.sessionId;
 
             if (session.sessionId === sessionId) {
@@ -53,39 +59,45 @@ async function loadSessions() {
             }
 
             const date = session.date
-                ? new Date(session.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                ? new Date(Number(session.date)).toLocaleDateString("en-US", {
+                    month: "short", day: "numeric"
+                  })
                 : "";
 
             li.innerHTML = `
                 <span class="chat-item-icon">💬</span>
-                <span class="chat-item-text">${session.title}</span>
-                <span class="chat-item-date">${date}</span>
+                <div class="chat-item-info">
+                    <span class="chat-item-text">${escapeHtml(session.title)}</span>
+                    <span class="chat-item-date">${date}</span>
+                </div>
             `;
 
             li.addEventListener("click", () => loadHistory(session.sessionId, li));
             list.appendChild(li);
         });
 
+        console.log(`Loaded ${sessions.length} sessions`);
+
     } catch (err) {
         console.error("Failed to load sessions:", err);
+        list.innerHTML = `<li class="no-chats">Could not load chats</li>`;
     }
 }
 
-// ── LOAD HISTORY FOR A SESSION ────────────────────────────────────────────────
+// ── LOAD CHAT HISTORY ─────────────────────────────────────────────────────────
 async function loadHistory(sid, clickedEl) {
     try {
         sessionId = sid;
         localStorage.setItem("sessionId", sid);
 
-        // Highlight active
         document.querySelectorAll(".chat-item").forEach(el => el.classList.remove("active-chat"));
         if (clickedEl) clickedEl.classList.add("active-chat");
 
-        const container = document.getElementById("chatContainer");
+        const container   = document.getElementById("chatContainer");
         container.innerHTML = "";
-        addMessage("Loading...", "assistant");
+        addMessage("Loading chat history...", "assistant");
 
-        const res  = await fetch(`${HISTORY_API}?sessionId=${sid}`);
+        const res  = await fetch(`${HISTORY_API}?sessionId=${encodeURIComponent(sid)}`);
         const data = await res.json();
 
         container.innerHTML = "";
@@ -97,13 +109,14 @@ async function loadHistory(sid, clickedEl) {
         }
 
         messages.forEach(msg => {
+            if (!msg.text) return;
             if (msg.role === "user") {
                 addMessage(msg.text, "user");
             } else {
                 if (msg.type === "image") {
-                    addMessage("🎨 " + (msg.text || "[Image generated]"), "assistant");
+                    addMessage("🎨 " + msg.text, "assistant");
                 } else if (msg.type === "graph") {
-                    addMessage("📈 " + (msg.text || "[Graph plotted]"), "assistant");
+                    addMessage("📈 " + msg.text, "assistant");
                 } else {
                     addMessage(msg.text, "assistant");
                 }
@@ -113,7 +126,7 @@ async function loadHistory(sid, clickedEl) {
         container.scrollTop = container.scrollHeight;
 
     } catch (err) {
-        console.error("Failed to load history:", err);
+        console.error("Load history error:", err);
         addMessage("Could not load chat history.", "assistant");
     }
 }
@@ -128,32 +141,32 @@ async function sendMessage() {
     input.value = "";
     showTyping();
 
-    const msg = message.toLowerCase();
+    // Smart intent detection
+    const isImageRequest = /^\s*(draw|create|sketch|show me a|generate a image|imagen)\s.*(shape|square|circle|triangle|hexagon|polygon|rectangle|pentagon|octagon|diagram)/i.test(message)
+        || /^draw (me )?(a |an )?(square|circle|triangle|hexagon|polygon|rectangle|pentagon|octagon)/i.test(message);
 
-    // Smart routing
-    const isImageRequest = /\b(draw|create|shape|square|circle|triangle|hexagon|polygon|rectangle|pentagon|octagon|imagen|generate image|picture|sketch)\b/i.test(message);
-    const isGraphRequest = /\b(graph|plot|sketch the function|draw the function|chart)\b/i.test(message);
+    const isGraphRequest = /\b(graph|plot|chart|draw the (function|graph|curve))\b/i.test(message);
 
     try {
-        if (isImageRequest && !isGraphRequest) {
-            await handleImage(message);
-        } else if (isGraphRequest) {
+        if (isGraphRequest && !isImageRequest) {
             await handleGraph(message);
+        } else if (isImageRequest) {
+            await handleImage(message);
         } else {
             await handleChat(message);
         }
 
-        // Wait 1.5s for DynamoDB to persist THEN refresh sidebar
-        setTimeout(loadSessions, 1500);
+        // Refresh sidebar after 2s to allow DynamoDB write to complete
+        setTimeout(loadSessions, 2000);
 
     } catch (error) {
         removeTyping();
-        addMessage("Server error. Please try again.", "assistant");
-        console.error(error);
+        addMessage("Something went wrong. Please try again.", "assistant");
+        console.error("sendMessage error:", error);
     }
 }
 
-// ── CHAT ──────────────────────────────────────────────────────────────────────
+// ── HANDLE CHAT ───────────────────────────────────────────────────────────────
 async function handleChat(message) {
     const res = await fetch(CHAT_API, {
         method:  "POST",
@@ -162,7 +175,7 @@ async function handleChat(message) {
     });
 
     let data = await res.json();
-    if (data.body) data = JSON.parse(data.body);
+    if (typeof data.body === "string") data = JSON.parse(data.body);
 
     sessionId = data.sessionId || sessionId;
     localStorage.setItem("sessionId", sessionId);
@@ -171,7 +184,7 @@ async function handleChat(message) {
     addMessage(data.reply || "No response received.", "assistant");
 }
 
-// ── GRAPH ─────────────────────────────────────────────────────────────────────
+// ── HANDLE GRAPH ──────────────────────────────────────────────────────────────
 async function handleGraph(message) {
     const res = await fetch(GRAPH_API, {
         method:  "POST",
@@ -180,7 +193,7 @@ async function handleGraph(message) {
     });
 
     let data = await res.json();
-    if (data.body) data = JSON.parse(data.body);
+    if (typeof data.body === "string") data = JSON.parse(data.body);
 
     removeTyping();
 
@@ -188,18 +201,18 @@ async function handleGraph(message) {
         addGraph(data);
     } else {
         addMessage(
-            "Could not generate graph. Try: 'plot x squared', 'graph sin(x)', 'plot x^3 - 2x'",
+            "Could not generate graph.\n\nTry these:\n- plot x squared\n- graph sin(x)\n- plot x^3 - 2x\n- graph cos(x)",
             "assistant"
         );
     }
 }
 
-// ── IMAGE ─────────────────────────────────────────────────────────────────────
+// ── HANDLE IMAGE ──────────────────────────────────────────────────────────────
 async function handleImage(message) {
     const msg = message.toLowerCase();
     let body  = {};
 
-    if (/imagen|generate image|ai image|picture/i.test(msg)) {
+    if (/imagen|generate image|ai image|ai picture/i.test(msg)) {
         body = { action: "imagen_ai", prompt: message, sessionId };
     } else {
         let shape = "square";
@@ -210,21 +223,17 @@ async function handleImage(message) {
         else if (/pentagon/.test(msg))  shape = "pentagon";
         else if (/octagon/.test(msg))   shape = "octagon";
         else if (/polygon/.test(msg))   shape = "polygon";
-        else if (/square/.test(msg))    shape = "square";
 
         const sidesMatch = msg.match(/(\d+)\s*side/);
         const sides      = sidesMatch ? parseInt(sidesMatch[1]) : 6;
         const sizeMatch  = msg.match(/size\s*(\d+)|(\d+)\s*px/);
         const size       = sizeMatch ? parseInt(sizeMatch[1] || sizeMatch[2]) : 150;
 
-        const colors = ["red","blue","green","yellow","purple","orange","pink","white","cyan","royalblue","gold"];
-        let color    = "royalblue";
-        for (const c of colors) { if (msg.includes(c)) { color = c; break; } }
+        const colorList = ["red","blue","green","yellow","purple","orange","pink","cyan","royalblue","gold","white"];
+        let color       = "royalblue";
+        for (const c of colorList) { if (msg.includes(c)) { color = c; break; } }
 
-        body = {
-            action: "draw_shape", shape, sides, size,
-            color, outline: "white", label: message, sessionId
-        };
+        body = { action: "draw_shape", shape, sides, size, color, outline: "white", label: message, sessionId };
     }
 
     const res = await fetch(IMAGE_API, {
@@ -236,36 +245,33 @@ async function handleImage(message) {
     removeTyping();
 
     try {
-        const text = await res.text();
-        let data   = JSON.parse(text);
+        let data = JSON.parse(await res.text());
         if (typeof data.body === "string") data = JSON.parse(data.body);
 
-        if (data.data_url) {
-            addImageToChat(data.data_url);
-        } else if (data.image) {
-            addImageToChat("data:image/png;base64," + data.image);
-        } else if (data.images?.[0]) {
-            addImageToChat(data.images[0].data_url);
-        } else {
-            addMessage("Could not generate image: " + (data.error || "Unknown error"), "assistant");
-        }
+        if      (data.data_url)       addImageToChat(data.data_url);
+        else if (data.image)          addImageToChat("data:image/png;base64," + data.image);
+        else if (data.images?.[0])    addImageToChat(data.images[0].data_url);
+        else addMessage("Could not generate image: " + (data.error || "Unknown error"), "assistant");
+
     } catch (e) {
-        console.error("Image parse error:", e);
+        console.error("Image error:", e);
         addMessage("Could not display image.", "assistant");
     }
 }
 
 // ── RENDER IMAGE ──────────────────────────────────────────────────────────────
 function addImageToChat(dataUrl) {
-    const container = document.getElementById("chatContainer");
-    const wrapper   = document.createElement("div");
+    const container   = document.getElementById("chatContainer");
+    const wrapper     = document.createElement("div");
     wrapper.className = "message assistant";
 
-    const img     = document.createElement("img");
-    img.src       = dataUrl;
-    img.alt       = "Generated image";
-    img.style.cssText = "max-width:100%;border-radius:12px;margin-top:6px;display:block;";
-    img.onerror   = () => { wrapper.innerText = "Image could not be displayed."; };
+    const img       = document.createElement("img");
+    img.src         = dataUrl;
+    img.alt         = "Generated image";
+    img.style.cssText = "max-width:100%;border-radius:12px;margin-top:6px;display:block;cursor:pointer;";
+    img.title       = "Click to enlarge";
+    img.onclick     = () => window.open(dataUrl, "_blank");
+    img.onerror     = () => { wrapper.innerText = "Image could not be displayed."; };
 
     wrapper.appendChild(img);
     container.appendChild(wrapper);
@@ -276,26 +282,26 @@ function addImageToChat(dataUrl) {
 function addGraph(data) {
     const container = document.getElementById("chatContainer");
     const wrapper   = document.createElement("div");
-    wrapper.className          = "message assistant";
+    wrapper.className          = "message assistant graph-wrapper";
     wrapper.style.background   = "#ffffff";
     wrapper.style.padding      = "20px";
-    wrapper.style.borderRadius = "20px";
+    wrapper.style.borderRadius = "16px";
     wrapper.style.maxWidth     = "100%";
+    wrapper.style.width        = "100%";
 
     const title         = document.createElement("p");
     title.innerText     = data.label || "Graph";
-    title.style.cssText = "font-weight:bold;color:#1e3a5f;margin-bottom:10px;font-size:14px;";
+    title.style.cssText = "font-weight:bold;color:#1e3a5f;margin-bottom:12px;font-size:14px;font-family:serif;";
     wrapper.appendChild(title);
 
-    const canvas  = document.createElement("canvas");
-    canvas.height = 400;
+    const canvas    = document.createElement("canvas");
+    canvas.height   = 380;
     wrapper.appendChild(canvas);
 
     container.appendChild(wrapper);
     container.scrollTop = container.scrollHeight;
 
-    // Filter out null y values for cleaner plotting
-    const validPoints = data.x
+    const validPoints = (data.x || [])
         .map((x, i) => ({ x, y: data.y[i] }))
         .filter(p => p.y !== null && p.y !== undefined && isFinite(p.y));
 
@@ -304,21 +310,22 @@ function addGraph(data) {
         data: {
             datasets: [{
                 data:        validPoints,
-                borderColor: "#2c7be5",
+                borderColor: "#1d4ed8",
                 borderWidth: 2,
                 pointRadius: 0,
-                tension:     0.3,
+                tension:     0.1,
                 fill:        false
             }]
         },
         options: {
             responsive:          true,
             maintainAspectRatio: false,
+            animation:           { duration: 600 },
             plugins: {
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
-                        label: (ctx) => `y = ${ctx.parsed.y.toFixed(4)}`
+                        label: ctx => `y = ${Number(ctx.parsed.y).toFixed(4)}`
                     }
                 }
             },
@@ -329,33 +336,39 @@ function addGraph(data) {
                     max:   data.x_max !== undefined ? data.x_max : 10,
                     title: {
                         display: true, text: "x",
-                        color: "#333", font: { size: 13, weight: "bold" }
+                        color: "#1e293b", font: { size: 13, weight: "bold" }
                     },
-                    grid:  { color: "#e8e8e8" },
-                    ticks: { color: "#555", maxTicksLimit: 10 },
-                    border: { display: true, color: "#333", width: 2 }
+                    grid:  { color: "#e2e8f0" },
+                    ticks: { color: "#475569", maxTicksLimit: 10 },
+                    border:{ display: true, color: "#1e293b", width: 2 }
                 },
                 y: {
-                    min:  data.y_min,
-                    max:  data.y_max,
+                    min:   data.y_min,
+                    max:   data.y_max,
                     title: {
                         display: true, text: "y",
-                        color: "#333", font: { size: 13, weight: "bold" }
+                        color: "#1e293b", font: { size: 13, weight: "bold" }
                     },
-                    grid:  { color: "#e8e8e8" },
-                    ticks: { color: "#555", maxTicksLimit: 8 },
-                    border: { display: true, color: "#333", width: 2 }
+                    grid:  { color: "#e2e8f0" },
+                    ticks: { color: "#475569", maxTicksLimit: 8 },
+                    border:{ display: true, color: "#1e293b", width: 2 }
                 }
             }
         }
     });
 }
 
-// ── HELPERS ───────────────────────────────────────────────────────────────────
+// ── ADD MESSAGE ───────────────────────────────────────────────────────────────
 function addMessage(text, role) {
     const container = document.getElementById("chatContainer");
     const div       = document.createElement("div");
     div.className   = "message " + role;
+
+    // Format numbered lists nicely
+    if (role === "assistant" && /^\d+\.\s/m.test(text)) {
+        div.style.whiteSpace = "pre-line";
+    }
+
     div.innerText   = text;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
@@ -363,15 +376,21 @@ function addMessage(text, role) {
 
 function showTyping() {
     const container  = document.getElementById("chatContainer");
-    const typing     = document.createElement("div");
-    typing.id        = "typing";
-    typing.className = "message assistant";
-    typing.innerText = "Typing...";
-    container.appendChild(typing);
+    const el         = document.createElement("div");
+    el.id            = "typing";
+    el.className     = "message assistant typing-msg";
+    el.innerHTML     = `<span class="dot"></span><span class="dot"></span><span class="dot"></span>`;
+    container.appendChild(el);
     container.scrollTop = container.scrollHeight;
 }
 
 function removeTyping() {
     const el = document.getElementById("typing");
     if (el) el.remove();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.appendChild(document.createTextNode(text));
+    return div.innerHTML;
 }
