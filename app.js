@@ -251,3 +251,4 @@ function removeTyping() {
     const el = document.getElementById("typing");
     if (el) el.remove();
 }
+
