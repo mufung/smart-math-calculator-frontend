@@ -1,9 +1,4 @@
-/* RESET */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
     font-family: 'Segoe UI', sans-serif;
@@ -22,12 +17,7 @@ body {
     z-index: 0;
 }
 
-.layout {
-    display: flex;
-    min-height: 100vh;
-    position: relative;
-    z-index: 2;
-}
+.layout { display: flex; min-height: 100vh; position: relative; z-index: 2; }
 
 .sidebar {
     width: 260px;
@@ -39,67 +29,22 @@ body {
     border-right: 1px solid rgba(255,255,255,0.05);
 }
 
-.logo-section h2 {
-    font-size: 20px;
-    color: #00c6ff;
-}
-.logo-section span {
-    font-size: 13px;
-    opacity: 0.6;
-}
+.logo-section h2 { font-size: 20px; color: #00c6ff; }
+.logo-section span { font-size: 13px; opacity: 0.6; }
 
-.sidebar ul {
-    list-style: none;
-    margin-top: 40px;
-}
+.sidebar ul { list-style: none; margin-top: 40px; }
+.sidebar li { padding: 12px 10px; border-radius: 8px; cursor: pointer; transition: 0.3s; }
+.sidebar li:hover, .sidebar li.active { background: rgba(0,198,255,0.15); }
 
-.sidebar li {
-    padding: 12px 10px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: 0.3s;
-}
+.main { flex: 1; display: flex; flex-direction: column; }
 
-.sidebar li:hover,
-.sidebar li.active {
-    background: rgba(0,198,255,0.15);
-}
+.topbar { padding: 25px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.topbar h1 { font-size: 24px; }
+.topbar p { font-size: 13px; opacity: 0.6; }
 
-/* MAIN */
-.main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
+.app { flex: 1; display: flex; flex-direction: column; padding: 25px; }
 
-.topbar {
-    padding: 25px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-
-.topbar h1 {
-    font-size: 24px;
-}
-
-.topbar p {
-    font-size: 13px;
-    opacity: 0.6;
-}
-
-/* CHAT APP */
-.app {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 25px;
-}
-
-#chatContainer {
-    flex: 1;
-    overflow-y: auto;
-    padding-right: 10px;
-    scroll-behavior: smooth;
-}
+#chatContainer { flex: 1; overflow-y: auto; padding-right: 10px; scroll-behavior: smooth; }
 
 .message {
     padding: 14px 18px;
@@ -109,28 +54,17 @@ body {
     animation: fadeIn 0.3s ease;
 }
 
-.user {
-    background: linear-gradient(135deg, #7b3ff2, #a259ff);
-    align-self: flex-end;
-}
+.user { background: linear-gradient(135deg, #7b3ff2, #a259ff); align-self: flex-end; }
+.assistant { background: rgba(255,255,255,0.1); align-self: flex-start; }
 
-.assistant {
-    background: rgba(255,255,255,0.1);
-    align-self: flex-start;
-}
-
-.message img,
-.message canvas {
+.message img, .message canvas {
     max-width: 100%;
     height: auto;
     border-radius: 12px;
     margin-top: 10px;
 }
 
-.inputArea {
-    display: flex;
-    margin-top: 15px;
-}
+.inputArea { display: flex; margin-top: 15px; }
 
 input {
     flex: 1;
@@ -153,63 +87,20 @@ button {
     transition: 0.3s;
 }
 
-button:hover {
-    transform: scale(1.05);
-}
+button:hover { transform: scale(1.05); }
 
-/* TYPING INDICATOR */
-.typing {
-    display: flex;
-    gap: 5px;
-    margin-bottom: 10px;
-}
-
-.typing span {
-    width: 8px;
-    height: 8px;
-    background: #00c6ff;
-    border-radius: 50%;
-    animation: blink 1.4s infinite both;
-}
-
+.typing { display: flex; gap: 5px; margin-bottom: 10px; }
+.typing span { width: 8px; height: 8px; background: #00c6ff; border-radius: 50%; animation: blink 1.4s infinite both; }
 .typing span:nth-child(2) { animation-delay: .2s; }
 .typing span:nth-child(3) { animation-delay: .4s; }
-
 .hidden { display: none; }
 
-@keyframes blink {
-    0% { opacity: .2; }
-    20% { opacity: 1; }
-    100% { opacity: .2; }
-}
+@keyframes blink { 0% { opacity: .2; } 20% { opacity: 1; } 100% { opacity: .2; } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-}
+.light-mode { background: #f4f6fb; color: #111; }
+.light-mode .sidebar { background: white; color: black; }
+.light-mode .assistant { background: #eaeaea; color: black; }
+.light-mode input { background: #eaeaea; color: black; }
 
-/* LIGHT MODE */
-.light-mode {
-    background: #f4f6fb;
-    color: #111;
-}
-
-.light-mode .sidebar {
-    background: white;
-    color: black;
-}
-
-.light-mode .assistant {
-    background: #eaeaea;
-    color: black;
-}
-
-.light-mode input {
-    background: #eaeaea;
-    color: black;
-}
-
-/* RESPONSIVE */
-@media(max-width: 900px) {
-    .sidebar { display: none; }
-}
+@media(max-width: 900px) { .sidebar { display: none; } }
