@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HighupWeb Academy | Math AI - Project MXP</title>
+<title>HighupWeb Academy | Math AI Assistant</title>
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -18,12 +18,10 @@
       <span>Academy AI</span>
     </div>
 
-    <!-- NEW CHAT BUTTON -->
     <button class="new-chat-btn" onclick="startNewChat()">
-      ➕ New Chat
+      + New Chat
     </button>
 
-    <!-- PAST CHATS -->
     <div class="chat-history-section">
       <p class="chat-history-title">Recent Chats</p>
       <ul id="chatList"></ul>
@@ -50,16 +48,13 @@
   <div class="main">
     <header class="topbar">
       <h1>Math AI Assistant</h1>
-      <p>Project MXP • HighupWeb Academy • Cameroon</p>
+      <p>Project MXP &bull; HighupWeb Academy &bull; Cameroon</p>
     </header>
 
     <div class="app">
       <div id="chatContainer"></div>
-      <div id="typingIndicator" class="typing hidden">
-        <span></span><span></span><span></span>
-      </div>
       <div class="inputArea">
-        <input id="messageInput" placeholder="Ask any math question..." />
+        <input id="messageInput" placeholder="Ask any math question..." autocomplete="off"/>
         <button id="sendBtn">Send</button>
       </div>
     </div>
@@ -69,12 +64,10 @@
 
 <script src="app.js"></script>
 <script>
-const toggle = document.getElementById("themeToggle");
-toggle.addEventListener("change", () => {
+document.getElementById("themeToggle").addEventListener("change", () => {
     document.body.classList.toggle("light-mode");
 });
-const sendBtn = document.getElementById("sendBtn");
-sendBtn.addEventListener("click", () => sendMessage());
+document.getElementById("sendBtn").addEventListener("click", sendMessage);
 document.getElementById("messageInput").addEventListener("keypress", (e) => {
     if (e.key === "Enter") sendMessage();
 });
