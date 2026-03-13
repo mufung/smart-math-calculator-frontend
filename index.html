@@ -11,20 +11,32 @@
 <div class="background-overlay"></div>
 <div class="layout">
 
+  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="logo-section">
       <h2>HIGHUPWEB</h2>
       <span>Academy AI</span>
     </div>
+
+    <!-- NEW CHAT BUTTON -->
+    <button class="new-chat-btn" onclick="startNewChat()">
+      ➕ New Chat
+    </button>
+
+    <!-- PAST CHATS -->
+    <div class="chat-history-section">
+      <p class="chat-history-title">Recent Chats</p>
+      <ul id="chatList"></ul>
+    </div>
+
     <nav>
       <ul>
-        <li class="active">Dashboard</li>
-        <li>Math AI</li>
         <li>Analytics</li>
         <li>Students</li>
         <li>Admin</li>
       </ul>
     </nav>
+
     <div class="theme-toggle">
       <label class="switch">
         <input type="checkbox" id="themeToggle">
@@ -34,11 +46,13 @@
     </div>
   </aside>
 
+  <!-- MAIN -->
   <div class="main">
     <header class="topbar">
       <h1>Math AI Assistant</h1>
       <p>Project MXP • HighupWeb Academy • Cameroon</p>
     </header>
+
     <div class="app">
       <div id="chatContainer"></div>
       <div id="typingIndicator" class="typing hidden">
@@ -52,6 +66,7 @@
   </div>
 
 </div>
+
 <script src="app.js"></script>
 <script>
 const toggle = document.getElementById("themeToggle");
