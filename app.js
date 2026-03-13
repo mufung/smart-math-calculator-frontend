@@ -23,10 +23,10 @@ function startNewChat() {
     localStorage.setItem("sessionId", sessionId);
     document.getElementById("chatContainer").innerHTML = "";
     document.querySelectorAll(".chat-item").forEach(el => el.classList.remove("active-chat"));
-    addMessage("New chat started. Ask me any math question! 🧮", "assistant");
+    addMessage("New chat started! Ask me any math question — algebra, geometry, calculus, statistics and more! 🧮", "assistant");
 }
 
-// ── LOAD ALL SESSIONS INTO SIDEBAR ────────────────────────────────────────────
+// ── LOAD ALL SESSIONS ─────────────────────────────────────────────────────────
 async function loadSessions() {
     try {
         const res  = await fetch(SESSIONS_API);
@@ -44,13 +44,17 @@ async function loadSessions() {
         }
 
         sessions.forEach(session => {
-            const li  = document.createElement("li");
+            const li = document.createElement("li");
             li.className = "chat-item";
-            if (session.sessionId === sessionId) li.classList.add("active-chat");
+            li.dataset.sid = session.sessionId;
 
-            const date = new Date(session.date).toLocaleDateString("en-US", {
-                month: "short", day: "numeric"
-            });
+            if (session.sessionId === sessionId) {
+                li.classList.add("active-chat");
+            }
+
+            const date = session.date
+                ? new Date(session.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                : "";
 
             li.innerHTML = `
                 <span class="chat-item-icon">💬</span>
@@ -58,7 +62,7 @@ async function loadSessions() {
                 <span class="chat-item-date">${date}</span>
             `;
 
-            li.addEventListener("click", () => loadHistory(session.sessionId));
+            li.addEventListener("click", () => loadHistory(session.sessionId, li));
             list.appendChild(li);
         });
 
@@ -67,19 +71,19 @@ async function loadSessions() {
     }
 }
 
-// ── LOAD A SPECIFIC CHAT HISTORY ──────────────────────────────────────────────
-async function loadHistory(sid) {
+// ── LOAD HISTORY FOR A SESSION ────────────────────────────────────────────────
+async function loadHistory(sid, clickedEl) {
     try {
         sessionId = sid;
         localStorage.setItem("sessionId", sid);
 
-        // Highlight active chat
+        // Highlight active
         document.querySelectorAll(".chat-item").forEach(el => el.classList.remove("active-chat"));
-        event?.target?.closest(".chat-item")?.classList.add("active-chat");
+        if (clickedEl) clickedEl.classList.add("active-chat");
 
         const container = document.getElementById("chatContainer");
         container.innerHTML = "";
-        addMessage("Loading chat...", "assistant");
+        addMessage("Loading...", "assistant");
 
         const res  = await fetch(`${HISTORY_API}?sessionId=${sid}`);
         const data = await res.json();
@@ -87,20 +91,22 @@ async function loadHistory(sid) {
         container.innerHTML = "";
 
         const messages = data.messages || [];
-
         if (messages.length === 0) {
             addMessage("No messages found in this chat.", "assistant");
             return;
         }
 
         messages.forEach(msg => {
-            if (msg.type === "image" && msg.role === "assistant") {
-                // Skip image placeholder text — can't restore base64
-                addMessage("[Image was generated here]", "assistant");
-            } else if (msg.type === "graph" && msg.role === "assistant") {
-                addMessage(`📈 ${msg.text}`, "assistant");
+            if (msg.role === "user") {
+                addMessage(msg.text, "user");
             } else {
-                addMessage(msg.text, msg.role);
+                if (msg.type === "image") {
+                    addMessage("🎨 " + (msg.text || "[Image generated]"), "assistant");
+                } else if (msg.type === "graph") {
+                    addMessage("📈 " + (msg.text || "[Graph plotted]"), "assistant");
+                } else {
+                    addMessage(msg.text, "assistant");
+                }
             }
         });
 
@@ -122,19 +128,24 @@ async function sendMessage() {
     input.value = "";
     showTyping();
 
-    const isImageRequest = /draw|create|shape|square|circle|triangle|hexagon|polygon|rectangle|imagen|generate image|picture/i.test(message);
-    const isGraphRequest = /graph|plot|function of|f\(x\)/i.test(message);
+    const msg = message.toLowerCase();
+
+    // Smart routing
+    const isImageRequest = /\b(draw|create|shape|square|circle|triangle|hexagon|polygon|rectangle|pentagon|octagon|imagen|generate image|picture|sketch)\b/i.test(message);
+    const isGraphRequest = /\b(graph|plot|sketch the function|draw the function|chart)\b/i.test(message);
 
     try {
-        if (isImageRequest) {
+        if (isImageRequest && !isGraphRequest) {
             await handleImage(message);
         } else if (isGraphRequest) {
             await handleGraph(message);
         } else {
             await handleChat(message);
         }
-        // Refresh session list after each message
-        loadSessions();
+
+        // Wait 1.5s for DynamoDB to persist THEN refresh sidebar
+        setTimeout(loadSessions, 1500);
+
     } catch (error) {
         removeTyping();
         addMessage("Server error. Please try again.", "assistant");
@@ -157,7 +168,7 @@ async function handleChat(message) {
     localStorage.setItem("sessionId", sessionId);
 
     removeTyping();
-    addMessage(data.reply || "No response", "assistant");
+    addMessage(data.reply || "No response received.", "assistant");
 }
 
 // ── GRAPH ─────────────────────────────────────────────────────────────────────
@@ -176,14 +187,17 @@ async function handleGraph(message) {
     if (data.x && data.y) {
         addGraph(data);
     } else {
-        addMessage("Could not generate graph. Try: 'plot x^2' or 'graph sin(x)'", "assistant");
+        addMessage(
+            "Could not generate graph. Try: 'plot x squared', 'graph sin(x)', 'plot x^3 - 2x'",
+            "assistant"
+        );
     }
 }
 
 // ── IMAGE ─────────────────────────────────────────────────────────────────────
 async function handleImage(message) {
-    const msg  = message.toLowerCase();
-    let body   = {};
+    const msg = message.toLowerCase();
+    let body  = {};
 
     if (/imagen|generate image|ai image|picture/i.test(msg)) {
         body = { action: "imagen_ai", prompt: message, sessionId };
@@ -196,6 +210,7 @@ async function handleImage(message) {
         else if (/pentagon/.test(msg))  shape = "pentagon";
         else if (/octagon/.test(msg))   shape = "octagon";
         else if (/polygon/.test(msg))   shape = "polygon";
+        else if (/square/.test(msg))    shape = "square";
 
         const sidesMatch = msg.match(/(\d+)\s*side/);
         const sides      = sidesMatch ? parseInt(sidesMatch[1]) : 6;
@@ -206,7 +221,10 @@ async function handleImage(message) {
         let color    = "royalblue";
         for (const c of colors) { if (msg.includes(c)) { color = c; break; } }
 
-        body = { action: "draw_shape", shape, sides, size, color, outline: "white", label: message, sessionId };
+        body = {
+            action: "draw_shape", shape, sides, size,
+            color, outline: "white", label: message, sessionId
+        };
     }
 
     const res = await fetch(IMAGE_API, {
@@ -243,11 +261,11 @@ function addImageToChat(dataUrl) {
     const wrapper   = document.createElement("div");
     wrapper.className = "message assistant";
 
-    const img       = document.createElement("img");
-    img.src         = dataUrl;
-    img.alt         = "Generated image";
+    const img     = document.createElement("img");
+    img.src       = dataUrl;
+    img.alt       = "Generated image";
     img.style.cssText = "max-width:100%;border-radius:12px;margin-top:6px;display:block;";
-    img.onerror     = () => { wrapper.innerText = "Image could not be displayed."; };
+    img.onerror   = () => { wrapper.innerText = "Image could not be displayed."; };
 
     wrapper.appendChild(img);
     container.appendChild(wrapper);
@@ -258,56 +276,82 @@ function addImageToChat(dataUrl) {
 function addGraph(data) {
     const container = document.getElementById("chatContainer");
     const wrapper   = document.createElement("div");
-    wrapper.className           = "message assistant";
-    wrapper.style.background    = "#ffffff";
-    wrapper.style.padding       = "25px";
-    wrapper.style.borderRadius  = "20px";
+    wrapper.className          = "message assistant";
+    wrapper.style.background   = "#ffffff";
+    wrapper.style.padding      = "20px";
+    wrapper.style.borderRadius = "20px";
+    wrapper.style.maxWidth     = "100%";
 
-    const title     = document.createElement("p");
-    title.innerText = data.label || "Graph";
-    title.style.cssText = "font-weight:bold;color:#333;margin-bottom:10px;font-size:14px;";
+    const title         = document.createElement("p");
+    title.innerText     = data.label || "Graph";
+    title.style.cssText = "font-weight:bold;color:#1e3a5f;margin-bottom:10px;font-size:14px;";
     wrapper.appendChild(title);
 
-    const canvas    = document.createElement("canvas");
-    canvas.height   = 500;
+    const canvas  = document.createElement("canvas");
+    canvas.height = 400;
     wrapper.appendChild(canvas);
 
     container.appendChild(wrapper);
     container.scrollTop = container.scrollHeight;
 
+    // Filter out null y values for cleaner plotting
+    const validPoints = data.x
+        .map((x, i) => ({ x, y: data.y[i] }))
+        .filter(p => p.y !== null && p.y !== undefined && isFinite(p.y));
+
     new Chart(canvas, {
         type: "line",
         data: {
             datasets: [{
-                data:        data.x.map((x, i) => ({ x, y: data.y[i] })),
+                data:        validPoints,
                 borderColor: "#2c7be5",
-                borderWidth: 3,
+                borderWidth: 2,
                 pointRadius: 0,
-                tension:     0.25
+                tension:     0.3,
+                fill:        false
             }]
         },
         options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            responsive:          true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `y = ${ctx.parsed.y.toFixed(4)}`
+                    }
+                }
+            },
             scales: {
                 x: {
-                    type: "linear", min: -10, max: 10,
-                    title: { display: true, text: "x", color: "#333", font: { size: 14, weight: "bold" } },
-                    grid: { color: "#e0e0e0" }, ticks: { stepSize: 1, color: "#555" },
-                    border: { display: true, color: "#000", width: 3 }
+                    type:  "linear",
+                    min:   data.x_min !== undefined ? data.x_min : -10,
+                    max:   data.x_max !== undefined ? data.x_max : 10,
+                    title: {
+                        display: true, text: "x",
+                        color: "#333", font: { size: 13, weight: "bold" }
+                    },
+                    grid:  { color: "#e8e8e8" },
+                    ticks: { color: "#555", maxTicksLimit: 10 },
+                    border: { display: true, color: "#333", width: 2 }
                 },
                 y: {
-                    min: data.y_min, max: data.y_max,
-                    title: { display: true, text: "y", color: "#333", font: { size: 14, weight: "bold" } },
-                    grid: { color: "#e0e0e0" }, ticks: { color: "#555" },
-                    border: { display: true, color: "#000", width: 3 }
+                    min:  data.y_min,
+                    max:  data.y_max,
+                    title: {
+                        display: true, text: "y",
+                        color: "#333", font: { size: 13, weight: "bold" }
+                    },
+                    grid:  { color: "#e8e8e8" },
+                    ticks: { color: "#555", maxTicksLimit: 8 },
+                    border: { display: true, color: "#333", width: 2 }
                 }
             }
         }
     });
 }
 
-// ── ADD MESSAGE ───────────────────────────────────────────────────────────────
+// ── HELPERS ───────────────────────────────────────────────────────────────────
 function addMessage(text, role) {
     const container = document.getElementById("chatContainer");
     const div       = document.createElement("div");
