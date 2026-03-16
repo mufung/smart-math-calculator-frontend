@@ -10,10 +10,9 @@ localStorage.setItem("sessionId", sessionId);
 // ── ON PAGE LOAD ──────────────────────────────────────────────────────────────
 window.addEventListener("load", async () => {
     await loadSessions();
-    addMessage("Hello! I am Math AI Assistant. Ask me any math question — algebra, geometry, calculus, trigonometry, statistics and more! 🧮", "assistant");
+    addMessage("Hello! I am Math AI Assistant. Ask me any math question — algebra, geometry, calculus, trigonometry, statistics and more!", "assistant");
 });
 
-// ── GENERATE SESSION ID ───────────────────────────────────────────────────────
 function generateSessionId() {
     return "session-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
 }
@@ -24,24 +23,20 @@ function startNewChat() {
     localStorage.setItem("sessionId", sessionId);
     document.getElementById("chatContainer").innerHTML = "";
     document.querySelectorAll(".chat-item").forEach(el => el.classList.remove("active-chat"));
-    addMessage("New chat started! Ask me any math question! 🧮", "assistant");
+    addMessage("New chat started! Ask me any math question!", "assistant");
 }
 
-// ── LOAD ALL SESSIONS ─────────────────────────────────────────────────────────
+// ── LOAD SESSIONS ─────────────────────────────────────────────────────────────
 async function loadSessions() {
     const list = document.getElementById("chatList");
     if (!list) return;
-
     try {
         list.innerHTML = `<li class="loading-chats">Loading chats...</li>`;
-
-        const res  = await fetch(SESSIONS_API);
-        const text = await res.text();
+        const res      = await fetch(SESSIONS_API);
+        const text     = await res.text();
         console.log("Sessions raw response:", text);
-
         const data     = JSON.parse(text);
         const sessions = data.sessions || [];
-
         list.innerHTML = "";
 
         if (sessions.length === 0) {
@@ -53,15 +48,10 @@ async function loadSessions() {
             const li       = document.createElement("li");
             li.className   = "chat-item";
             li.dataset.sid = session.sessionId;
-
-            if (session.sessionId === sessionId) {
-                li.classList.add("active-chat");
-            }
+            if (session.sessionId === sessionId) li.classList.add("active-chat");
 
             const date = session.date
-                ? new Date(Number(session.date)).toLocaleDateString("en-US", {
-                    month: "short", day: "numeric"
-                  })
+                ? new Date(Number(session.date)).toLocaleDateString("en-US", { month: "short", day: "numeric" })
                 : "";
 
             li.innerHTML = `
@@ -69,27 +59,24 @@ async function loadSessions() {
                 <div class="chat-item-info">
                     <span class="chat-item-text">${escapeHtml(session.title)}</span>
                     <span class="chat-item-date">${date}</span>
-                </div>
-            `;
+                </div>`;
 
             li.addEventListener("click", () => loadHistory(session.sessionId, li));
             list.appendChild(li);
         });
 
         console.log(`Loaded ${sessions.length} sessions`);
-
     } catch (err) {
         console.error("Failed to load sessions:", err);
         list.innerHTML = `<li class="no-chats">Could not load chats</li>`;
     }
 }
 
-// ── LOAD CHAT HISTORY ─────────────────────────────────────────────────────────
+// ── LOAD HISTORY ──────────────────────────────────────────────────────────────
 async function loadHistory(sid, clickedEl) {
     try {
         sessionId = sid;
         localStorage.setItem("sessionId", sid);
-
         document.querySelectorAll(".chat-item").forEach(el => el.classList.remove("active-chat"));
         if (clickedEl) clickedEl.classList.add("active-chat");
 
@@ -99,7 +86,6 @@ async function loadHistory(sid, clickedEl) {
 
         const res  = await fetch(`${HISTORY_API}?sessionId=${encodeURIComponent(sid)}`);
         const data = await res.json();
-
         container.innerHTML = "";
 
         const messages = data.messages || [];
@@ -120,7 +106,6 @@ async function loadHistory(sid, clickedEl) {
         });
 
         container.scrollTop = container.scrollHeight;
-
     } catch (err) {
         console.error("Load history error:", err);
         addMessage("Could not load chat history.", "assistant");
@@ -137,21 +122,19 @@ async function sendMessage() {
     input.value = "";
     showTyping();
 
-    const isGraphRequest = /\b(graph|plot|chart|draw the function|sketch the function|draw the graph|sketch the graph)\b/i.test(message);
+    const isGraphRequest = /\b(graph|plot|chart|sketch)\b/i.test(message);
     const isImageRequest = /^(draw|create|sketch|show)\s.*(square|circle|triangle|hexagon|polygon|rectangle|pentagon|octagon|shape)/i.test(message)
         || /\b(imagen|generate image|ai image|ai picture)\b/i.test(message);
 
     try {
-        if (isGraphRequest) {
+        if (isGraphRequest && !isImageRequest) {
             await handleGraph(message);
         } else if (isImageRequest) {
             await handleImage(message);
         } else {
             await handleChat(message);
         }
-
         setTimeout(loadSessions, 2000);
-
     } catch (error) {
         removeTyping();
         addMessage("Something went wrong. Please try again.", "assistant");
@@ -166,13 +149,10 @@ async function handleChat(message) {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ message, sessionId })
     });
-
     let data = await res.json();
     if (typeof data.body === "string") data = JSON.parse(data.body);
-
     sessionId = data.sessionId || sessionId;
     localStorage.setItem("sessionId", sessionId);
-
     removeTyping();
     addMessage(data.reply || "No response received.", "assistant");
 }
@@ -184,19 +164,14 @@ async function handleGraph(message) {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ expression: message, sessionId })
     });
-
     let data = await res.json();
     if (typeof data.body === "string") data = JSON.parse(data.body);
-
     removeTyping();
 
     if (data.x && data.y) {
         addGraph(data);
     } else {
-        addMessage(
-            "Could not generate graph. Try:\n- plot x squared\n- graph sin(x)\n- plot x^3 minus 2x",
-            "assistant"
-        );
+        addMessage("Could not generate graph.\n\nTry:\n- plot x squared\n- graph sin(x)\n- plot x cubed minus 2x", "assistant");
     }
 }
 
@@ -234,18 +209,15 @@ async function handleImage(message) {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify(body)
     });
-
     removeTyping();
 
     try {
         let data = JSON.parse(await res.text());
         if (typeof data.body === "string") data = JSON.parse(data.body);
-
         if      (data.data_url)    addImageToChat(data.data_url);
         else if (data.image)       addImageToChat("data:image/png;base64," + data.image);
         else if (data.images?.[0]) addImageToChat(data.images[0].data_url);
         else addMessage("Could not generate image: " + (data.error || "Unknown error"), "assistant");
-
     } catch (e) {
         console.error("Image error:", e);
         addMessage("Could not display image.", "assistant");
@@ -257,157 +229,176 @@ function addImageToChat(dataUrl) {
     const container   = document.getElementById("chatContainer");
     const wrapper     = document.createElement("div");
     wrapper.className = "message assistant";
-
     const img       = document.createElement("img");
     img.src         = dataUrl;
     img.alt         = "Generated image";
     img.style.cssText = "max-width:100%;border-radius:12px;margin-top:6px;display:block;cursor:pointer;";
-    img.title       = "Click to enlarge";
     img.onclick     = () => window.open(dataUrl, "_blank");
     img.onerror     = () => { wrapper.innerText = "Image could not be displayed."; };
-
     wrapper.appendChild(img);
     container.appendChild(wrapper);
     container.scrollTop = container.scrollHeight;
 }
 
-// ── RENDER GRAPH — FIXED ──────────────────────────────────────────────────────
+// ── RENDER GRAPH — PROPER MATH COORDINATE SYSTEM ─────────────────────────────
 function addGraph(data) {
     const container = document.getElementById("chatContainer");
-    const wrapper   = document.createElement("div");
-    wrapper.className = "message assistant graph-wrapper";
 
+    const wrapper         = document.createElement("div");
+    wrapper.className     = "message assistant graph-wrapper";
+    wrapper.style.cssText = "background:white;padding:20px;border-radius:16px;max-width:95%;width:95%;";
+
+    // Title
     const title         = document.createElement("p");
     title.innerText     = "📈 " + (data.label || "Graph");
-    title.style.cssText = "font-weight:bold;color:#1e3a5f;margin-bottom:12px;font-size:14px;";
+    title.style.cssText = "font-weight:bold;color:#1e3a5f;margin-bottom:14px;font-size:14px;text-align:center;";
     wrapper.appendChild(title);
 
-    const canvasWrapper       = document.createElement("div");
-    canvasWrapper.style.cssText = "position:relative;height:380px;width:100%;background:white;border-radius:12px;padding:10px;";
-
-    const canvas = document.createElement("canvas");
-    canvasWrapper.appendChild(canvas);
-    wrapper.appendChild(canvasWrapper);
+    // Canvas container — fixed height
+    const canvasBox         = document.createElement("div");
+    canvasBox.style.cssText = "position:relative;height:420px;width:100%;";
+    const canvas            = document.createElement("canvas");
+    canvasBox.appendChild(canvas);
+    wrapper.appendChild(canvasBox);
     container.appendChild(wrapper);
     container.scrollTop = container.scrollHeight;
 
-    // ── Build clean sorted data points ──
-    const rawPoints = [];
-    const xArr = data.x || [];
-    const yArr = data.y || [];
+    // Build sorted valid data points
+    const points = [];
+    const xArr   = data.x || [];
+    const yArr   = data.y || [];
 
     for (let i = 0; i < xArr.length; i++) {
         const x = Number(xArr[i]);
         const y = yArr[i];
-        // Only include finite valid numbers
-        if (
-            y !== null &&
-            y !== undefined &&
-            isFinite(Number(y)) &&
-            isFinite(x)
-        ) {
-            rawPoints.push({ x: x, y: Number(y) });
+        if (y !== null && y !== undefined && isFinite(Number(y)) && isFinite(x)) {
+            points.push({ x: x, y: Number(y) });
         }
     }
 
-    // Sort by x value — critical for correct parabola shape
-    rawPoints.sort((a, b) => a.x - b.x);
+    // Sort by x — critical for correct curve shape
+    points.sort((a, b) => a.x - b.x);
 
-    if (rawPoints.length === 0) {
-        wrapper.innerHTML = "<p style='color:red'>Could not render graph — no valid data points.</p>";
+    if (points.length === 0) {
+        wrapper.innerHTML += "<p style='color:red;text-align:center'>No valid data points to plot.</p>";
         return;
     }
 
-    // Calculate proper y bounds from actual data
-    const allY    = rawPoints.map(p => p.y);
-    const minY    = Math.min(...allY);
-    const maxY    = Math.max(...allY);
-    const yRange  = maxY - minY || 10;
-    const yPad    = yRange * 0.15;
+    const allY   = points.map(p => p.y);
+    const minY   = Math.min(...allY);
+    const maxY   = Math.max(...allY);
+    const yRange = maxY - minY || 4;
+    const yPad   = yRange * 0.18;
 
-    const xMin    = data.x_min !== undefined ? Number(data.x_min) : -10;
-    const xMax    = data.x_max !== undefined ? Number(data.x_max) :  10;
-    const yMin    = Number(data.y_min !== undefined ? data.y_min : minY - yPad);
-    const yMax    = Number(data.y_max !== undefined ? data.y_max : maxY + yPad);
+    const xMin   = Number(data.x_min !== undefined ? data.x_min : -5);
+    const xMax   = Number(data.x_max !== undefined ? data.x_max :  5);
+    const yMin   = Number(data.y_min !== undefined ? data.y_min : minY - yPad);
+    const yMax   = Number(data.y_max !== undefined ? data.y_max : maxY + yPad);
 
-    console.log(`Graph: ${data.label} | Points: ${rawPoints.length} | Y range: ${minY} to ${maxY}`);
+    // ── TICK SIZE — clean round numbers ──────────────────────────────────────
+    const xRange    = xMax - xMin;
+    const xTickSize = xRange <= 4   ? 0.5
+                    : xRange <= 10  ? 1
+                    : xRange <= 20  ? 2
+                    : 5;
+
+    const yDisplayRange = yMax - yMin;
+    const yTickSize     = yDisplayRange <= 4   ? 0.5
+                        : yDisplayRange <= 10  ? 1
+                        : yDisplayRange <= 20  ? 2
+                        : yDisplayRange <= 50  ? 5
+                        : 10;
 
     new Chart(canvas, {
-        type: "scatter",   // USE SCATTER not line — this respects x values properly
+        type: "scatter",
         data: {
             datasets: [{
-                data:            rawPoints,
-                showLine:        true,        // draw the line through points
-                borderColor:     "#1d4ed8",
-                borderWidth:     2.5,
-                pointRadius:     0,           // no dots on each point
-                pointHoverRadius: 4,
-                tension:         0,           // straight lines between points — no smoothing
-                fill:            false,
-                backgroundColor: "transparent"
+                data:             points,
+                showLine:         true,
+                borderColor:      "#1d4ed8",
+                borderWidth:      2.5,
+                pointRadius:      0,
+                pointHoverRadius: 5,
+                tension:          0,
+                fill:             false
             }]
         },
         options: {
             responsive:          true,
             maintainAspectRatio: false,
-            animation: {
-                duration: 500
-            },
+            animation:           { duration: 600 },
             plugins: {
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
-                        label: ctx => `(${ctx.parsed.x.toFixed(2)}, ${ctx.parsed.y.toFixed(4)})`
+                        label: ctx => `(${ctx.parsed.x.toFixed(2)}, ${ctx.parsed.y.toFixed(3)})`
                     }
                 }
             },
             scales: {
                 x: {
-                    type:  "linear",
-                    min:   xMin,
-                    max:   xMax,
+                    type:     "linear",
+                    min:      xMin,
+                    max:      xMax,
+
+                    // ── X AXIS CROSSES AT Y=0 — like real math graph ──
+                    position: "center",
+
                     title: {
-                        display:  true,
-                        text:     "x",
-                        color:    "#1e293b",
-                        font:     { size: 13, weight: "bold" }
+                        display: true,
+                        text:    "x",
+                        color:   "#1e293b",
+                        font:    { size: 14, weight: "bold" }
                     },
-                    grid:  {
-                        color:     "#e2e8f0",
-                        lineWidth: 1
+                    grid: {
+                        color:        (ctx) => ctx.tick.value === 0
+                            ? "#000000"   // bold zero line
+                            : "#d1d5db", // light grid
+                        lineWidth:    (ctx) => ctx.tick.value === 0 ? 2 : 1,
+                        drawTicks:    true
                     },
                     ticks: {
-                        color:         "#475569",
-                        maxTicksLimit: 11,
-                        stepSize:      2
+                        color:     "#374151",
+                        stepSize:  xTickSize,
+                        font:      { size: 11 },
+                        callback:  (val) => val === 0 ? "" : val  // hide 0 label to keep clean
                     },
                     border: {
                         display: true,
-                        color:   "#1e293b",
+                        color:   "#000000",
                         width:   2
                     }
                 },
                 y: {
-                    type:  "linear",
-                    min:   yMin,
-                    max:   yMax,
+                    type: "linear",
+                    min:  yMin,
+                    max:  yMax,
+
+                    // ── Y AXIS CROSSES AT X=0 — like real math graph ──
+                    position: "center",
+
                     title: {
-                        display:  true,
-                        text:     "y",
-                        color:    "#1e293b",
-                        font:     { size: 13, weight: "bold" }
+                        display: true,
+                        text:    "y",
+                        color:   "#1e293b",
+                        font:    { size: 14, weight: "bold" }
                     },
-                    grid:  {
-                        color:     "#e2e8f0",
-                        lineWidth: 1
+                    grid: {
+                        color:     (ctx) => ctx.tick.value === 0
+                            ? "#000000"
+                            : "#d1d5db",
+                        lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1,
+                        drawTicks: true
                     },
                     ticks: {
-                        color:         "#475569",
-                        maxTicksLimit: 8
+                        color:     "#374151",
+                        stepSize:  yTickSize,
+                        font:      { size: 11 },
+                        callback:  (val) => val === 0 ? "" : val
                     },
                     border: {
                         display: true,
-                        color:   "#1e293b",
+                        color:   "#000000",
                         width:   2
                     }
                 }
@@ -418,13 +409,13 @@ function addGraph(data) {
 
 // ── ADD MESSAGE ───────────────────────────────────────────────────────────────
 function addMessage(text, role) {
-    const container = document.getElementById("chatContainer");
-    const div       = document.createElement("div");
-    div.className   = "message " + role;
+    const container      = document.getElementById("chatContainer");
+    const div            = document.createElement("div");
+    div.className        = "message " + role;
     div.style.whiteSpace = "pre-line";
-    div.innerText   = text;
+    div.innerText        = text;
     container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
+    container.scrollTop  = container.scrollHeight;
 }
 
 function showTyping() {
