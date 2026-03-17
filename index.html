@@ -5,7 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HighupWeb Academy | Math AI Assistant</title>
 <link rel="stylesheet" href="style.css">
+
+<!-- Chart.js for graphs -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- KaTeX for math rendering -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInDocument()"></script>
+
+<script>
+function renderMathInDocument() {
+    // Called after KaTeX loads — renders any existing math
+    if (window.renderMathInElement) {
+        document.querySelectorAll(".math-content").forEach(el => {
+            renderMathInElement(el, {
+                delimiters: [
+                    { left: "$$", right: "$$", display: true  },
+                    { left: "$",  right: "$",  display: false }
+                ],
+                throwOnError: false,
+                output: "html"
+            });
+        });
+    }
+}
+</script>
 </head>
 <body>
 <div class="background-overlay"></div>
