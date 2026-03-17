@@ -1,4 +1,4 @@
-const CHAT_API     = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
+ const CHAT_API     = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
 const GRAPH_API    = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/graph";
 const IMAGE_API    = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/image";
 const SESSIONS_API = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/sessions";
@@ -9,7 +9,7 @@ localStorage.setItem("sessionId", sessionId);
 
 window.addEventListener("load", async () => {
     await loadSessions();
-    addMessage("Hello! I am Math AI Assistant. Ask me any math question — algebra, geometry, calculus, trigonometry, statistics and more!", "assistant");
+    addMessage("Hello! I am Math AI Assistant — your personal math tutor. Ask me anything — algebra, calculus, trigonometry, statistics and more!", "assistant");
 });
 
 function generateSessionId() {
@@ -24,6 +24,7 @@ function startNewChat() {
     addMessage("New chat started! Ask me any math question!", "assistant");
 }
 
+// ── LOAD SESSIONS ─────────────────────────────────────────────────────────────
 async function loadSessions() {
     const list = document.getElementById("chatList");
     if (!list) return;
@@ -69,6 +70,7 @@ async function loadSessions() {
     }
 }
 
+// ── LOAD HISTORY ──────────────────────────────────────────────────────────────
 async function loadHistory(sid, clickedEl) {
     try {
         sessionId = sid;
@@ -97,7 +99,7 @@ async function loadHistory(sid, clickedEl) {
             } else {
                 if      (msg.type === "image") addMessage("🎨 " + msg.text, "assistant");
                 else if (msg.type === "graph") addMessage("📈 " + msg.text, "assistant");
-                else                           addMessage(msg.text, "assistant");
+                else                           addMathMessage(msg.text);
             }
         });
 
@@ -108,6 +110,7 @@ async function loadHistory(sid, clickedEl) {
     }
 }
 
+// ── SEND MESSAGE ──────────────────────────────────────────────────────────────
 async function sendMessage() {
     const input   = document.getElementById("messageInput");
     const message = input.value.trim();
@@ -137,6 +140,7 @@ async function sendMessage() {
     }
 }
 
+// ── HANDLE CHAT ───────────────────────────────────────────────────────────────
 async function handleChat(message) {
     const res = await fetch(CHAT_API, {
         method:  "POST",
@@ -148,9 +152,10 @@ async function handleChat(message) {
     sessionId = data.sessionId || sessionId;
     localStorage.setItem("sessionId", sessionId);
     removeTyping();
-    addMessage(data.reply || "No response received.", "assistant");
+    addMathMessage(data.reply || "No response received.");
 }
 
+// ── HANDLE GRAPH ──────────────────────────────────────────────────────────────
 async function handleGraph(message) {
     const res = await fetch(GRAPH_API, {
         method:  "POST",
@@ -168,6 +173,7 @@ async function handleGraph(message) {
     }
 }
 
+// ── HANDLE IMAGE ──────────────────────────────────────────────────────────────
 async function handleImage(message) {
     const msg = message.toLowerCase();
     let body  = {};
@@ -216,6 +222,85 @@ async function handleImage(message) {
     }
 }
 
+// ── ADD MATH MESSAGE — renders LaTeX with KaTeX ───────────────────────────────
+function addMathMessage(text) {
+    const container = document.getElementById("chatContainer");
+
+    const wrapper         = document.createElement("div");
+    wrapper.className     = "message assistant math-message";
+
+    const content         = document.createElement("div");
+    content.className     = "math-content";
+
+    // Convert markdown bold **text** to <strong>text</strong>
+    // Convert newlines to <br>
+    // Keep $ and $$ for KaTeX
+    let html = escapeHtmlKeepMath(text)
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\n/g, "<br>");
+
+    content.innerHTML = html;
+    wrapper.appendChild(content);
+    container.appendChild(wrapper);
+
+    // Render KaTeX math after DOM insertion
+    if (window.renderMathInElement) {
+        renderMathInElement(content, {
+            delimiters: [
+                { left: "$$", right: "$$", display: true  },
+                { left: "$",  right: "$",  display: false }
+            ],
+            throwOnError: false,
+            output: "html"
+        });
+    }
+
+    container.scrollTop = container.scrollHeight;
+}
+
+// ── ESCAPE HTML but preserve $ math delimiters ────────────────────────────────
+function escapeHtmlKeepMath(text) {
+    // Split on math regions, escape HTML outside, keep inside math raw
+    const parts = [];
+    let remaining = text;
+    const mathRegex = /(\$\$[\s\S]*?\$\$|\$[^$\n]+?\$)/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = mathRegex.exec(text)) !== null) {
+        // Escape the text before this math block
+        const before = text.substring(lastIndex, match.index);
+        parts.push(escapeHtmlBasic(before));
+        // Keep the math block as-is
+        parts.push(match[0]);
+        lastIndex = match.index + match[0].length;
+    }
+
+    // Escape remaining text after last math block
+    parts.push(escapeHtmlBasic(text.substring(lastIndex)));
+
+    return parts.join("");
+}
+
+function escapeHtmlBasic(str) {
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
+
+// ── ADD PLAIN MESSAGE ─────────────────────────────────────────────────────────
+function addMessage(text, role) {
+    const container      = document.getElementById("chatContainer");
+    const div            = document.createElement("div");
+    div.className        = "message " + role;
+    div.style.whiteSpace = "pre-line";
+    div.innerText        = text;
+    container.appendChild(div);
+    container.scrollTop  = container.scrollHeight;
+}
+
+// ── ADD IMAGE ─────────────────────────────────────────────────────────────────
 function addImageToChat(dataUrl) {
     const container   = document.getElementById("chatContainer");
     const wrapper     = document.createElement("div");
@@ -231,7 +316,7 @@ function addImageToChat(dataUrl) {
     container.scrollTop = container.scrollHeight;
 }
 
-// ── RENDER GRAPH — PROPER MATH COORDINATE SYSTEM ─────────────────────────────
+// ── RENDER GRAPH ──────────────────────────────────────────────────────────────
 function addGraph(data) {
     const container = document.getElementById("chatContainer");
 
@@ -247,25 +332,21 @@ function addGraph(data) {
         border: 1px solid #e2e8f0;
     `;
 
-    // Title bar
     const titleBar         = document.createElement("div");
     titleBar.style.cssText = "display:flex;align-items:center;justify-content:center;margin-bottom:14px;gap:8px;";
     titleBar.innerHTML     = `
-        <span style="font-size:18px;">📈</span>
+        <span style="font-size:18px">📈</span>
         <span style="font-weight:700;color:#1e3a5f;font-size:15px;font-family:'Segoe UI',sans-serif;">
-            ${escapeHtml(data.label || "Graph")}
-        </span>
-    `;
+            ${escapeHtmlBasic(data.label || "Graph")}
+        </span>`;
     wrapper.appendChild(titleBar);
 
-    // Canvas container
     const canvasBox         = document.createElement("div");
     canvasBox.style.cssText = "position:relative;height:440px;width:100%;background:#fafafa;border-radius:10px;border:1px solid #e5e7eb;";
     const canvas            = document.createElement("canvas");
     canvasBox.appendChild(canvas);
     wrapper.appendChild(canvasBox);
 
-    // Footer label
     const footer         = document.createElement("div");
     footer.style.cssText = "text-align:center;margin-top:10px;font-size:11px;color:#94a3b8;font-family:monospace;";
     footer.innerText     = `f(x) = ${data.expression || data.label}`;
@@ -274,7 +355,6 @@ function addGraph(data) {
     container.appendChild(wrapper);
     container.scrollTop = container.scrollHeight;
 
-    // ── Build sorted valid data points ────────────────────────────────────────
     const points = [];
     const xArr   = data.x || [];
     const yArr   = data.y || [];
@@ -290,11 +370,10 @@ function addGraph(data) {
     points.sort((a, b) => a.x - b.x);
 
     if (points.length === 0) {
-        canvasBox.innerHTML = "<p style='color:red;text-align:center;padding-top:180px;'>No valid data points to plot.</p>";
+        canvasBox.innerHTML = "<p style='color:red;text-align:center;padding-top:180px;'>No valid data points.</p>";
         return;
     }
 
-    // ── Calculate bounds ──────────────────────────────────────────────────────
     const allY   = points.map(p => p.y);
     const minY   = Math.min(...allY);
     const maxY   = Math.max(...allY);
@@ -303,32 +382,18 @@ function addGraph(data) {
 
     const xMin = Number(data.x_min !== undefined ? data.x_min : -5);
     const xMax = Number(data.x_max !== undefined ? data.x_max :  5);
+    let yMin   = Number(data.y_min !== undefined ? data.y_min : minY - yPad);
+    let yMax   = Number(data.y_max !== undefined ? data.y_max : maxY + yPad);
 
-    // Make y axis symmetric around data — extend to include 0
-    let yMin = Number(data.y_min !== undefined ? data.y_min : minY - yPad);
-    let yMax = Number(data.y_max !== undefined ? data.y_max : maxY + yPad);
-
-    // Always include 0 in view so x-axis is visible
     if (yMin > 0) yMin = -(yMax * 0.15);
     if (yMax < 0) yMax = -(yMin * 0.15);
 
-    // ── Smart tick sizes ──────────────────────────────────────────────────────
     const xRange    = xMax - xMin;
-    const xTickStep = xRange <= 4  ? 0.5
-                    : xRange <= 8  ? 1
-                    : xRange <= 16 ? 2
-                    : xRange <= 40 ? 5
-                    : 10;
+    const xTickStep = xRange <= 4 ? 0.5 : xRange <= 8 ? 1 : xRange <= 16 ? 2 : xRange <= 40 ? 5 : 10;
 
-    const yDisplayRange = yMax - yMin;
-    const yTickStep     = yDisplayRange <= 4  ? 0.5
-                        : yDisplayRange <= 8  ? 1
-                        : yDisplayRange <= 16 ? 2
-                        : yDisplayRange <= 40 ? 5
-                        : yDisplayRange <= 100 ? 10
-                        : 20;
+    const yDispRange = yMax - yMin;
+    const yTickStep  = yDispRange <= 4 ? 0.5 : yDispRange <= 8 ? 1 : yDispRange <= 16 ? 2 : yDispRange <= 40 ? 5 : yDispRange <= 100 ? 10 : 20;
 
-    // ── Draw Chart ────────────────────────────────────────────────────────────
     new Chart(canvas, {
         type: "scatter",
         data: {
@@ -339,15 +404,13 @@ function addGraph(data) {
                 borderWidth:      2.5,
                 pointRadius:      0,
                 pointHoverRadius: 5,
-                pointHoverBackgroundColor: "#2563eb",
                 tension:          0,
                 fill:             false
             }]
         },
         options: {
-            responsive:          true,
-            maintainAspectRatio: false,
-            animation:           { duration: 700, easing: "easeInOutQuart" },
+            responsive: true, maintainAspectRatio: false,
+            animation: { duration: 700, easing: "easeInOutQuart" },
             plugins: {
                 legend: { display: false },
                 tooltip: {
@@ -364,92 +427,25 @@ function addGraph(data) {
             },
             scales: {
                 x: {
-                    type:     "linear",
-                    min:      xMin,
-                    max:      xMax,
-                    position: "center",   // ← X axis at y=0
-
-                    title: {
-                        display: true,
-                        text:    "x",
-                        color:   "#1e293b",
-                        font:    { size: 13, weight: "bold" },
-                        padding: { top: 8 }
-                    },
-                    grid: {
-                        color: (ctx) => {
-                            if (ctx.tick.value === 0) return "#000000";
-                            return "#e5e7eb";
-                        },
-                        lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1
-                    },
-                    ticks: {
-                        color:     "#374151",
-                        stepSize:  xTickStep,
-                        font:      { size: 11, family: "monospace" },
-                        callback:  (val) => {
-                            if (val === 0) return "0";
-                            return Number.isInteger(val) ? val : val.toFixed(1);
-                        }
-                    },
-                    border: {
-                        display:   true,
-                        color:     "#111827",
-                        width:     2,
-                        dash:      [],
-                    }
+                    type: "linear", min: xMin, max: xMax, position: "center",
+                    title: { display: true, text: "x", color: "#1e293b", font: { size: 13, weight: "bold" } },
+                    grid:  { color: ctx => ctx.tick.value === 0 ? "#000" : "#e5e7eb", lineWidth: ctx => ctx.tick.value === 0 ? 2 : 1 },
+                    ticks: { color: "#374151", stepSize: xTickStep, font: { size: 11, family: "monospace" }, callback: val => val === 0 ? "0" : Number.isInteger(val) ? val : val.toFixed(1) },
+                    border: { display: true, color: "#111827", width: 2 }
                 },
                 y: {
-                    type:     "linear",
-                    min:      yMin,
-                    max:      yMax,
-                    position: "center",   // ← Y axis at x=0
-
-                    title: {
-                        display: true,
-                        text:    "y",
-                        color:   "#1e293b",
-                        font:    { size: 13, weight: "bold" },
-                        padding: { bottom: 8 }
-                    },
-                    grid: {
-                        color: (ctx) => {
-                            if (ctx.tick.value === 0) return "#000000";
-                            return "#e5e7eb";
-                        },
-                        lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1
-                    },
-                    ticks: {
-                        color:     "#374151",
-                        stepSize:  yTickStep,
-                        font:      { size: 11, family: "monospace" },
-                        callback:  (val) => {
-                            if (val === 0) return "0";
-                            return Number.isInteger(val) ? val : val.toFixed(1);
-                        }
-                    },
-                    border: {
-                        display: true,
-                        color:   "#111827",
-                        width:   2
-                    }
+                    type: "linear", min: yMin, max: yMax, position: "center",
+                    title: { display: true, text: "y", color: "#1e293b", font: { size: 13, weight: "bold" } },
+                    grid:  { color: ctx => ctx.tick.value === 0 ? "#000" : "#e5e7eb", lineWidth: ctx => ctx.tick.value === 0 ? 2 : 1 },
+                    ticks: { color: "#374151", stepSize: yTickStep, font: { size: 11, family: "monospace" }, callback: val => val === 0 ? "0" : Number.isInteger(val) ? val : val.toFixed(1) },
+                    border: { display: true, color: "#111827", width: 2 }
                 }
             }
         }
     });
 }
 
-// ── ADD MESSAGE ───────────────────────────────────────────────────────────────
-function addMessage(text, role) {
-    const container      = document.getElementById("chatContainer");
-    const div            = document.createElement("div");
-    div.className        = "message " + role;
-    div.style.whiteSpace = "pre-line";
-    div.innerText        = text;
-    container.appendChild(div);
-    container.scrollTop  = container.scrollHeight;
-}
-
+// ── TYPING INDICATOR ──────────────────────────────────────────────────────────
 function showTyping() {
     const container = document.getElementById("chatContainer");
     const el        = document.createElement("div");
