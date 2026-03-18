@@ -17,9 +17,11 @@ window.addEventListener("load", async () => {
     initVoice();
     await loadSessions();
     showWelcomeMessage();
+
+    // Play compelling welcome speech on load
     setTimeout(() => {
-        speakText("Welcome to Math AI Assistant! I am your personal math tutor. Ask me any math question and I will explain it step by step.");
-    }, 1000);
+        playWelcomeSpeech();
+    }, 800);
 });
 
 function generateSessionId() {
