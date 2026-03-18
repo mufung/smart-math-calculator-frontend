@@ -354,3 +354,33 @@ button#sendBtn:active { transform: scale(0.97); }
     .qr-btn { font-size: 12px; padding: 7px 12px; }
     .verification-badge { font-size: 12px; }
 }
+
+
+
+/* ══ IMAGE ERROR STATE ══════════════════════════════════════ */
+.image-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 20px;
+    color: rgba(255,255,255,0.5);
+    font-size: 14px;
+    text-align: center;
+}
+
+.image-error span:first-child {
+    font-size: 32px;
+}
+
+.image-link {
+    color: #00c6ff;
+    font-size: 12px;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.image-link:hover {
+    color: #67e8f9;
+}
+
