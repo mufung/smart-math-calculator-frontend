@@ -1,16 +1,16 @@
 // ============================================================
 // app.js — Main application logic
-// Path 3: Uses conversation.js for Socratic flow
-//         Sends full history to Lambda
-//         Detects confusion and understanding
+// Path 4: Verification Engine added
+//         After every chat response → calls /verify
+//         Shows verification badge on every answer
 // ============================================================
 
-// ── API ENDPOINTS ─────────────────────────────────────────────
 const CHAT_API     = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
 const GRAPH_API    = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/graph";
 const IMAGE_API    = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/image";
 const SESSIONS_API = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/sessions";
 const HISTORY_API  = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/history";
+const VERIFY_API   = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/verify";
 
 // ── SESSION ───────────────────────────────────────────────────
 let sessionId = localStorage.getItem("sessionId") || generateSessionId();
@@ -18,11 +18,9 @@ localStorage.setItem("sessionId", sessionId);
 
 // ── ON PAGE LOAD ──────────────────────────────────────────────
 window.addEventListener("load", async () => {
-    // Initialize conversation tracking from conversation.js
     initConversation(sessionId);
-
     await loadSessions();
-    showWelcomeMessage(); // from renderer.js
+    showWelcomeMessage();
 });
 
 // ── GENERATE SESSION ID ───────────────────────────────────────
@@ -34,9 +32,7 @@ function generateSessionId() {
 function startNewChat() {
     sessionId = generateSessionId();
     localStorage.setItem("sessionId", sessionId);
-
-    // Reset conversation history for new chat
-    clearHistory(); // from conversation.js
+    clearHistory();
     initConversation(sessionId);
 
     const container = document.getElementById("chatContainer");
@@ -46,7 +42,8 @@ function startNewChat() {
         el.classList.remove("active-chat");
     });
 
-    showWelcomeMessage(); // from renderer.js
+    hideQuickReplies();
+    showWelcomeMessage();
 }
 
 // ── LOAD SESSIONS ─────────────────────────────────────────────
@@ -103,13 +100,11 @@ async function loadSessions() {
     }
 }
 
-// ── LOAD CHAT HISTORY ─────────────────────────────────────────
+// ── LOAD HISTORY ──────────────────────────────────────────────
 async function loadHistory(sid, clickedEl) {
     try {
         sessionId = sid;
         localStorage.setItem("sessionId", sid);
-
-        // Reset and re-init conversation for this session
         clearHistory();
         initConversation(sid);
 
@@ -121,7 +116,8 @@ async function loadHistory(sid, clickedEl) {
         const container = document.getElementById("chatContainer");
         if (container) container.innerHTML = "";
 
-        addMarkdownMessage("Loading chat history...");
+        hideQuickReplies();
+        addMathMarkdownMessage("Loading chat history...");
 
         const res  = await fetch(`${HISTORY_API}?sessionId=${encodeURIComponent(sid)}`);
         const data = await res.json();
@@ -131,34 +127,28 @@ async function loadHistory(sid, clickedEl) {
         const messages = data.messages || [];
 
         if (messages.length === 0) {
-            addMarkdownMessage("No messages found in this chat.");
+            addMathMarkdownMessage("No messages found in this chat.");
             return;
         }
 
-        // Rebuild conversation history from DynamoDB for context
         messages.forEach(msg => {
             if (!msg.text) return;
 
             if (msg.role === "user") {
                 addUserMessage(msg.text);
-                // Rebuild history context
                 addToHistory("user", msg.text);
-
             } else if (msg.type === "image") {
                 if (msg.s3_url) {
                     addImageToChat(null, msg.s3_url);
                 } else {
-                    addMarkdownMessage("🎨 *Image generated here*");
+                    addMathMarkdownMessage("🎨 *Image generated here*");
                 }
-                addToHistory("assistant", msg.text || "[Image generated]");
-
+                addToHistory("assistant", msg.text || "[Image]");
             } else if (msg.type === "graph") {
-                addMarkdownMessage("📈 " + msg.text);
+                addMathMarkdownMessage("📈 " + msg.text);
                 addToHistory("assistant", msg.text);
-
             } else {
-                addMarkdownMessage(msg.text);
-                // Rebuild history context
+                addMathMarkdownMessage(msg.text);
                 addToHistory("assistant", msg.text);
             }
         });
@@ -168,11 +158,11 @@ async function loadHistory(sid, clickedEl) {
 
     } catch (err) {
         console.error("Load history error:", err);
-        addMarkdownMessage("Could not load chat history. Please try again.");
+        addMathMarkdownMessage("Could not load chat history. Please try again.");
     }
 }
 
-// ── SEND MESSAGE — MAIN ENTRY POINT ──────────────────────────
+// ── SEND MESSAGE ──────────────────────────────────────────────
 async function sendMessage() {
     const input = document.getElementById("messageInput");
     if (!input) return;
@@ -182,24 +172,17 @@ async function sendMessage() {
 
     addUserMessage(message);
     input.value = "";
+    hideQuickReplies();
     showTyping();
 
-    // Detect topic from message
-    detectTopic(message); // from conversation.js
+    detectTopic(message);
 
-    // Check if student is expressing confusion or understanding
-    const isConfused    = isConfusionMessage(message);    // from conversation.js
-    const isUnderstood  = isUnderstandingMessage(message); // from conversation.js
+    const isConfused   = isConfusionMessage(message);
+    const isUnderstood = isUnderstandingMessage(message);
 
-    if (isConfused) {
-        recordClarificationRequest(); // from conversation.js
-        showClarificationIndicator(); // show visual indicator
-    }
-    if (isUnderstood) {
-        recordUnderstanding(); // from conversation.js
-    }
+    if (isConfused)   { recordClarificationRequest(); showClarificationIndicator(); }
+    if (isUnderstood) { recordUnderstanding(); }
 
-    // Intent detection for routing
     const isGraphRequest = /\b(graph|plot|chart|sketch)\b/i.test(message);
     const isImageRequest = /^(draw|create|sketch|show)\s.*(square|circle|triangle|hexagon|polygon|rectangle|pentagon|octagon|shape)/i.test(message)
         || /\b(imagen|generate image|ai image|ai picture)\b/i.test(message);
@@ -217,28 +200,20 @@ async function sendMessage() {
 
     } catch (error) {
         removeTyping();
-        addMarkdownMessage("Something went wrong. Please try again.");
+        addMathMarkdownMessage("Something went wrong. Please try again.");
         console.error("sendMessage error:", error);
     }
 }
 
-// ── HANDLE CHAT — WITH FULL CONVERSATION HISTORY ─────────────
+// ── HANDLE CHAT — WITH VERIFICATION ──────────────────────────
 async function handleChat(message) {
-    // Get contextual instruction based on confusion level
-    const contextAdd = getContextualInstruction(); // from conversation.js
-
-    // Get full formatted history
-    const history = getFormattedHistory(); // from conversation.js
+    const contextAdd = getContextualInstruction();
+    const history    = getFormattedHistory();
 
     const res = await fetch(CHAT_API, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-            message,
-            sessionId,
-            history,       // ← Send full history to Lambda
-            contextAdd     // ← Send confusion context if any
-        })
+        body:    JSON.stringify({ message, sessionId, history, contextAdd })
     });
 
     let data = await res.json();
@@ -249,15 +224,96 @@ async function handleChat(message) {
 
     const reply = data.reply || "No response received.";
 
-    // Add BOTH sides to conversation history for next message
-    addToHistory("user",      message); // from conversation.js
-    addToHistory("assistant", reply);   // from conversation.js
+    addToHistory("user",      message);
+    addToHistory("assistant", reply);
 
     removeTyping();
     removeClarificationIndicator();
 
-    // Render with full math + markdown
-    addMathMarkdownMessage(reply); // from math-renderer.js
+    // Render the AI response
+    const msgWrapper = addMathMarkdownMessage(reply);
+
+    // Show quick replies
+    setTimeout(showQuickReplies, 400);
+
+    // ── Run verification in background ────────────────────────
+    // Don't block the UI — verify after showing the answer
+    verifyAndShowBadge(message, reply, msgWrapper);
+}
+
+// ── VERIFY AND SHOW BADGE ─────────────────────────────────────
+async function verifyAndShowBadge(question, aiAnswer, messageWrapper) {
+    try {
+        // Show "verifying..." spinner first
+        if (messageWrapper) {
+            const spinner = document.createElement("div");
+            spinner.id        = "verify-spinner-" + Date.now();
+            spinner.className = "verify-spinner";
+            spinner.innerHTML = `<span class="verify-dot"></span> Verifying answer...`;
+            messageWrapper.appendChild(spinner);
+
+            // Call verification API
+            const res = await fetch(VERIFY_API, {
+                method:  "POST",
+                headers: { "Content-Type": "application/json" },
+                body:    JSON.stringify({
+                    question,
+                    ai_answer: aiAnswer.substring(0, 1000), // limit size
+                    topic:     detectTopic(question) || "general"
+                })
+            });
+
+            const verifyData = await res.json();
+            let result = verifyData;
+            if (typeof result.body === "string") result = JSON.parse(result.body);
+
+            // Remove spinner
+            spinner.remove();
+
+            // Add verification badge to the message
+            if (result && result.badge) {
+                addVerificationBadge(messageWrapper, result);
+            }
+        }
+    } catch (err) {
+        console.warn("Verification failed silently:", err);
+        // Verification failure should never break the chat
+    }
+}
+
+// ── ADD VERIFICATION BADGE TO MESSAGE ─────────────────────────
+function addVerificationBadge(messageWrapper, result) {
+    if (!messageWrapper || !result) return;
+
+    const badge       = document.createElement("div");
+    badge.className   = `verification-badge ${result.badge_class || "badge-info"}`;
+
+    badge.innerHTML = `
+        <span class="badge-icon">${result.badge || "ℹ️"}</span>
+        <span class="badge-label">${result.badge_text || "Checked"}</span>
+        ${result.computed_answer
+            ? `<span class="badge-answer">= ${result.computed_answer}</span>`
+            : ""
+        }
+        <span class="badge-details-toggle" onclick="toggleBadgeDetails(this)">▼</span>
+        <div class="badge-details hidden">
+            ${escapeHtml(result.message || "")}
+            ${result.confidence
+                ? `<span class="badge-confidence">Confidence: ${result.confidence}</span>`
+                : ""
+            }
+        </div>
+    `;
+
+    messageWrapper.appendChild(badge);
+}
+
+// ── TOGGLE BADGE DETAILS ──────────────────────────────────────
+function toggleBadgeDetails(btn) {
+    const details = btn.nextElementSibling;
+    if (!details) return;
+    details.classList.toggle("hidden");
+    btn.textContent = details.classList.contains("hidden") ? "▼" : "▲";
 }
 
 // ── HANDLE GRAPH ──────────────────────────────────────────────
@@ -274,19 +330,17 @@ async function handleGraph(message) {
     removeTyping();
 
     if (data.x && data.y) {
-        // Add to history as text description
         addToHistory("user",      message);
         addToHistory("assistant", `Graph plotted: ${data.label || message}`);
         addGraph(data);
     } else {
-        const errMsg = `Could not generate graph.
+        addMathMarkdownMessage(`Could not generate graph.
 
 **Try these examples:**
 - plot x squared
 - graph sin(x)
 - plot x cubed minus 2x
-- graph cos(x) + x`;
-        addMathMarkdownMessage(errMsg);
+- graph cos(x) + x`);
     }
 }
 
@@ -340,7 +394,7 @@ async function handleImage(message) {
         else addMathMarkdownMessage("Could not generate image: " + (data.error || "Unknown error"));
 
         addToHistory("user",      message);
-        addToHistory("assistant", "[Image generated successfully]");
+        addToHistory("assistant", "[Image generated]");
 
     } catch (e) {
         console.error("Image error:", e);
@@ -434,11 +488,10 @@ function addGraph(data) {
     });
 }
 
-// ── CLARIFICATION VISUAL INDICATOR ───────────────────────────
+// ── CLARIFICATION INDICATOR ───────────────────────────────────
 function showClarificationIndicator() {
-    const inputArea = document.querySelector(".inputArea");
-    if (!inputArea) return;
-
+    const app = document.querySelector(".app");
+    if (!app) return;
     removeClarificationIndicator();
 
     const banner      = document.createElement("div");
@@ -448,12 +501,30 @@ function showClarificationIndicator() {
         <span class="clarification-icon">🔄</span>
         <span>Re-explaining with a simpler approach...</span>
     `;
-    inputArea.parentNode.insertBefore(banner, inputArea);
+    const inputArea = document.querySelector(".inputArea");
+    if (inputArea) app.insertBefore(banner, inputArea);
 }
 
 function removeClarificationIndicator() {
     const el = document.getElementById("clarificationBanner");
     if (el) el.remove();
+}
+
+// ── QUICK REPLIES ─────────────────────────────────────────────
+function showQuickReplies() {
+    const el = document.getElementById("quickReplies");
+    if (el) el.classList.remove("hidden");
+}
+
+function hideQuickReplies() {
+    const el = document.getElementById("quickReplies");
+    if (el) el.classList.add("hidden");
+}
+
+function quickReply(text) {
+    document.getElementById("messageInput").value = text;
+    hideQuickReplies();
+    sendMessage();
 }
 
 // ── ESCAPE HTML ───────────────────────────────────────────────
