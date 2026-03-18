@@ -1,10 +1,8 @@
- // ============================================================
+// ============================================================
 // renderer.js — Message rendering for Math AI Assistant
-// Handles: Plain messages, images, typing, graph wrapper
-// Path 1 + Path 2 updates
+// Path 5 fix: Better image handling with S3 + base64 fallback
 // ============================================================
 
-// ── CONFIGURE MARKED.JS ──────────────────────────────────────
 function configureMarked() {
     if (typeof marked === "undefined") return;
     marked.setOptions({
@@ -28,7 +26,7 @@ function addUserMessage(text) {
     container.scrollTop = container.scrollHeight;
 }
 
-// ── ADD PLAIN MESSAGE (non-math, non-markdown) ────────────────
+// ── ADD PLAIN MESSAGE ─────────────────────────────────────────
 function addMessage(text, role) {
     const container = document.getElementById("chatContainer");
     if (!container) return;
@@ -42,15 +40,12 @@ function addMessage(text, role) {
     container.scrollTop = container.scrollHeight;
 }
 
-// ── ADD MARKDOWN MESSAGE (no LaTeX) ──────────────────────────
-// Used for simple system messages, loading states etc.
+// ── ADD MARKDOWN MESSAGE ──────────────────────────────────────
 function addMarkdownMessage(text, role = "assistant") {
-    // Always route through full math+markdown renderer
-    // from math-renderer.js
     return addMathMarkdownMessage(text, role);
 }
 
-// ── ADD IMAGE TO CHAT ─────────────────────────────────────────
+// ── ADD IMAGE TO CHAT — FIXED ─────────────────────────────────
 function addImageToChat(dataUrl, s3Url = null) {
     const container = document.getElementById("chatContainer");
     if (!container) return;
@@ -59,17 +54,47 @@ function addImageToChat(dataUrl, s3Url = null) {
     wrapper.className = "message assistant image-message";
 
     const img         = document.createElement("img");
-    img.src           = s3Url || dataUrl || "";
     img.alt           = "Generated image";
     img.className     = "chat-image";
     img.title         = "Click to enlarge";
-    img.onclick       = () => window.open(img.src, "_blank");
-    img.onerror       = () => {
-        if (s3Url && dataUrl && img.src !== dataUrl) {
-            img.src = dataUrl;
+
+    // ── Smart URL strategy ────────────────────────────────────
+    // Always try base64 data URL first (works immediately)
+    // Fall back to S3 URL if data URL not available
+    // Fall back to other if both fail
+
+    let primaryUrl   = dataUrl || s3Url || "";
+    let fallbackUrl  = (dataUrl && s3Url && dataUrl !== s3Url) ? s3Url : null;
+    let attemptCount = 0;
+
+    img.src = primaryUrl;
+
+    img.onerror = () => {
+        attemptCount++;
+        if (attemptCount === 1 && fallbackUrl) {
+            console.log("Primary image URL failed, trying fallback:", fallbackUrl);
+            img.src = fallbackUrl;
+        } else if (attemptCount === 1 && s3Url && img.src !== s3Url) {
+            console.log("Trying S3 URL:", s3Url);
+            img.src = s3Url;
         } else {
-            wrapper.innerText = "Image could not be displayed.";
+            console.error("All image URLs failed");
+            wrapper.innerHTML = `
+                <div class="image-error">
+                    <span>🖼️</span>
+                    <span>Image could not be loaded</span>
+                    ${s3Url ? `<a href="${s3Url}" target="_blank" class="image-link">Open in new tab</a>` : ""}
+                </div>`;
         }
+    };
+
+    img.onload = () => {
+        console.log("Image loaded successfully from:", img.src.substring(0, 50));
+    };
+
+    img.onclick = () => {
+        const url = img.src || s3Url || dataUrl;
+        if (url) window.open(url, "_blank");
     };
 
     wrapper.appendChild(img);
@@ -80,7 +105,7 @@ function addImageToChat(dataUrl, s3Url = null) {
     downloadBtn.innerText = "⬇ Download";
     downloadBtn.onclick   = () => {
         const a    = document.createElement("a");
-        a.href     = img.src;
+        a.href     = img.src || s3Url || dataUrl;
         a.download = "math-ai-image.png";
         a.click();
     };
@@ -162,7 +187,7 @@ Hello! I am your personal math tutor, built for **HighupWeb Academy, Cameroon**.
 
 ## What I can help you with:
 - **Algebra** — equations, inequalities, polynomials
-- **Geometry** — shapes, area, volume, angles  
+- **Geometry** — shapes, area, volume, angles
 - **Trigonometry** — $\\sin$, $\\cos$, $\\tan$, identities
 - **Calculus** — derivatives, integrals, limits
 - **Statistics** — probability, mean, median, mode
@@ -180,7 +205,7 @@ Pythagorean theorem: $a^2 + b^2 = c^2$
 1. I start from the **basics** of any topic
 2. I explain **why** each step is done
 3. I ask if you understand before moving on
-4. I verify every answer for accuracy
+4. I verify every answer for accuracy ✅
 
 **Go ahead — ask me any math question!** 🚀`;
 
