@@ -384,28 +384,40 @@ async function handleImage(message) {
     removeTyping();
 
     try {
-        let data = JSON.parse(await res.text());
+        const rawText = await res.text();
+        let data      = JSON.parse(rawText);
         if (typeof data.body === "string") data = JSON.parse(data.body);
 
-        // Use S3 URL if available for persistent storage
-        const displayUrl = data.s3_url || data.data_url || (data.image ? "data:image/png;base64," + data.image : null);
-        const s3Url      = data.s3_url || null;
+        console.log("Image response keys:", Object.keys(data));
+
+        // ── Always prefer base64 for immediate display ────────
+        // S3 URL saved separately for persistence
+        let displayUrl = null;
+        let s3Url      = data.s3_url || null;
+
+        if (data.data_url) {
+            displayUrl = data.data_url;
+        } else if (data.image) {
+            displayUrl = "data:image/png;base64," + data.image;
+        } else if (data.images && data.images[0]) {
+            displayUrl = data.images[0].data_url;
+            s3Url      = data.images[0].s3_url || s3Url;
+        } else if (s3Url) {
+            // Only S3 URL available — use it directly
+            displayUrl = s3Url;
+        }
 
         if (displayUrl) {
             addImageToChat(displayUrl, s3Url);
-        } else if (data.images?.[0]) {
-            const img = data.images[0];
-            addImageToChat(img.s3_url || img.data_url, img.s3_url);
+            addToHistory("user",      message);
+            addToHistory("assistant", "[Image generated]");
         } else {
             addMathMarkdownMessage("Could not generate image: " + (data.error || "Unknown error"));
         }
 
-        addToHistory("user",      message);
-        addToHistory("assistant", "[Image generated]");
-
     } catch (e) {
-        console.error("Image error:", e);
-        addMathMarkdownMessage("Could not display image.");
+        console.error("Image parse error:", e);
+        addMathMarkdownMessage("Could not display image. Please try again.");
     }
 }
 
