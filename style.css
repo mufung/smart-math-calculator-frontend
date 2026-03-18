@@ -1,6 +1,7 @@
-/* ============================================================
-   style.css — Math AI Assistant Styles
-   Path 1: Added markdown message styling
+ /* ============================================================
+   style.css — Math AI Assistant
+   Path 1: Markdown rendering
+   Path 2: KaTeX LaTeX math styles added
    ============================================================ */
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -91,7 +92,6 @@ body {
 
 .theme-toggle { display: flex; align-items: center; gap: 10px; padding: 8px 4px 0; }
 .theme-toggle p { font-size: 12px; color: rgba(255,255,255,0.4); }
-
 .switch { position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; inset: 0; background: #1e293b; border-radius: 20px; transition: 0.3s; cursor: pointer; }
@@ -110,7 +110,6 @@ input:checked + .slider:before { transform: translateX(16px); }
 }
 .topbar h1 { font-size: 20px; font-weight: 700; }
 .topbar p  { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 2px; }
-
 .status-badge {
     font-size: 12px; color: #4ade80;
     background: rgba(74,222,128,0.1);
@@ -132,7 +131,7 @@ input:checked + .slider:before { transform: translateX(16px); }
 #chatContainer::-webkit-scrollbar { width: 4px; }
 #chatContainer::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
 
-/* ══ BASE MESSAGE ═══════════════════════════════════════════ */
+/* ══ BASE MESSAGES ══════════════════════════════════════════ */
 .message {
     padding: 14px 18px;
     border-radius: 18px;
@@ -162,54 +161,47 @@ input:checked + .slider:before { transform: translateX(16px); }
     backdrop-filter: blur(10px);
 }
 
-/* ══ MARKDOWN MESSAGE — PATH 1 ══════════════════════════════ */
-.markdown-message {
-    background: rgba(12, 18, 55, 0.90);
+/* ══ MARKDOWN + MATH MESSAGE ════════════════════════════════ */
+.markdown-message,
+.math-message {
+    background: rgba(10, 15, 50, 0.92);
     border: 1px solid rgba(99,179,237,0.15);
     color: #e2e8f0;
     font-size: 15px;
-    line-height: 1.85;
+    line-height: 1.9;
     max-width: 90%;
     padding: 18px 22px;
     border-radius: 18px;
     border-bottom-left-radius: 4px;
+    align-self: flex-start;
 }
 
-/* Headings inside markdown */
+/* Headings */
 .markdown-message h1 {
-    font-size: 22px; font-weight: 800;
+    font-size: 21px; font-weight: 800;
     color: #67e8f9;
     margin: 0 0 14px 0;
     padding-bottom: 8px;
     border-bottom: 1px solid rgba(103,232,249,0.2);
 }
 .markdown-message h2 {
-    font-size: 18px; font-weight: 700;
+    font-size: 17px; font-weight: 700;
     color: #93c5fd;
     margin: 16px 0 10px 0;
 }
 .markdown-message h3 {
-    font-size: 16px; font-weight: 600;
+    font-size: 15px; font-weight: 600;
     color: #a5b4fc;
     margin: 12px 0 8px 0;
 }
 
 /* Paragraphs */
-.markdown-message p {
-    margin: 0 0 10px 0;
-    color: #e2e8f0;
-}
+.markdown-message p { margin: 0 0 10px 0; color: #e2e8f0; }
 .markdown-message p:last-child { margin-bottom: 0; }
 
-/* Bold and italic */
-.markdown-message strong {
-    color: #67e8f9;
-    font-weight: 700;
-}
-.markdown-message em {
-    color: #c4b5fd;
-    font-style: italic;
-}
+/* Bold and Italic */
+.markdown-message strong { color: #67e8f9; font-weight: 700; }
+.markdown-message em { color: #c4b5fd; font-style: italic; }
 
 /* Bullet lists */
 .markdown-message ul {
@@ -225,8 +217,7 @@ input:checked + .slider:before { transform: translateX(16px); }
 .markdown-message ul li::before {
     content: "•";
     position: absolute; left: 0;
-    color: #00c6ff;
-    font-weight: 700;
+    color: #00c6ff; font-weight: 700;
 }
 
 /* Numbered lists */
@@ -245,9 +236,7 @@ input:checked + .slider:before { transform: translateX(16px); }
 .markdown-message ol li::before {
     content: counter(list-counter) ".";
     position: absolute; left: -20px;
-    color: #67e8f9;
-    font-weight: 700;
-    font-size: 14px;
+    color: #67e8f9; font-weight: 700; font-size: 14px;
 }
 
 /* Horizontal rule */
@@ -272,24 +261,19 @@ input:checked + .slider:before { transform: translateX(16px); }
     background: rgba(0,0,0,0.35);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 8px;
-    padding: 12px 16px;
-    margin: 10px 0;
+    padding: 12px 16px; margin: 10px 0;
     overflow-x: auto;
 }
 .markdown-message pre code {
     background: transparent;
-    color: #a5f3fc;
-    padding: 0;
-    font-size: 13px;
+    color: #a5f3fc; padding: 0; font-size: 13px;
 }
 
 /* Blockquote */
 .markdown-message blockquote {
     border-left: 3px solid #00c6ff;
-    padding: 4px 0 4px 14px;
-    margin: 10px 0;
-    color: rgba(255,255,255,0.7);
-    font-style: italic;
+    padding: 4px 0 4px 14px; margin: 10px 0;
+    color: rgba(255,255,255,0.7); font-style: italic;
 }
 
 /* Tables */
@@ -300,8 +284,7 @@ input:checked + .slider:before { transform: translateX(16px); }
 .markdown-message th {
     background: rgba(0,198,255,0.12);
     color: #67e8f9;
-    padding: 8px 12px;
-    text-align: left;
+    padding: 8px 12px; text-align: left;
     border: 1px solid rgba(255,255,255,0.1);
     font-weight: 600;
 }
@@ -310,66 +293,92 @@ input:checked + .slider:before { transform: translateX(16px); }
     border: 1px solid rgba(255,255,255,0.08);
     color: #e2e8f0;
 }
-.markdown-message tr:hover td {
-    background: rgba(255,255,255,0.03);
+.markdown-message tr:hover td { background: rgba(255,255,255,0.03); }
+
+/* ══ KATEX MATH STYLES — PATH 2 ════════════════════════════ */
+
+/* Display math block — centered, prominent */
+.markdown-message .katex-display {
+    margin: 18px 0 !important;
+    padding: 14px 20px;
+    background: rgba(99, 179, 237, 0.07);
+    border-radius: 12px;
+    border-left: 4px solid #63b3ed;
+    overflow-x: auto;
+    text-align: center !important;
+}
+
+/* The final answer box — green border */
+.markdown-message .katex-display:last-of-type {
+    border-left: 4px solid #4ade80;
+    background: rgba(74, 222, 128, 0.07);
+}
+
+/* Inline math color */
+.markdown-message .katex {
+    color: #93c5fd;
+    font-size: 1.05em;
+}
+
+/* Display math color */
+.markdown-message .katex-display .katex {
+    color: #e2e8f0;
+    font-size: 1.2em !important;
+}
+
+/* KaTeX error styling */
+.markdown-message .katex-error {
+    color: #ef4444;
+    font-size: 12px;
+}
+
+/* Math fallback (when KaTeX not loaded) */
+.math-display-fallback {
+    font-family: 'Courier New', monospace;
+    background: rgba(0,0,0,0.3);
+    padding: 10px 16px;
+    border-radius: 8px;
+    border-left: 4px solid #63b3ed;
+    color: #93c5fd;
+    margin: 10px 0;
+    overflow-x: auto;
 }
 
 /* ══ IMAGE MESSAGE ══════════════════════════════════════════ */
 .image-message {
     background: rgba(12,18,55,0.9);
     border: 1px solid rgba(99,179,237,0.15);
-    padding: 14px;
-    border-radius: 16px;
-    max-width: 90%;
+    padding: 14px; border-radius: 16px; max-width: 90%;
 }
-
 .chat-image {
     max-width: 100%; height: auto;
-    border-radius: 10px;
-    display: block;
-    cursor: pointer;
-    transition: transform 0.2s;
+    border-radius: 10px; display: block;
+    cursor: pointer; transition: transform 0.2s;
 }
 .chat-image:hover { transform: scale(1.01); }
 
 .image-download-btn {
-    margin-top: 8px;
-    padding: 5px 12px;
+    margin-top: 8px; padding: 5px 12px;
     background: rgba(0,198,255,0.1);
     border: 1px solid rgba(0,198,255,0.3);
-    border-radius: 6px;
-    color: #00c6ff;
-    font-size: 12px;
-    cursor: pointer;
-    transition: 0.2s;
+    border-radius: 6px; color: #00c6ff;
+    font-size: 12px; cursor: pointer; transition: 0.2s;
 }
 .image-download-btn:hover { background: rgba(0,198,255,0.2); }
 
 /* ══ GRAPH ══════════════════════════════════════════════════ */
 .graph-wrapper {
-    background: white;
-    border-radius: 16px;
+    background: white; border-radius: 16px;
     padding: 16px 16px 12px;
     max-width: 95%; width: 95%;
     box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-    border: 1px solid #e2e8f0;
-    align-self: flex-start;
+    border: 1px solid #e2e8f0; align-self: flex-start;
 }
-
-.graph-title-bar {
-    display: flex; align-items: center; gap: 8px;
-    margin-bottom: 12px;
-}
+.graph-title-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .graph-icon { font-size: 18px; }
 .graph-title { font-weight: 700; color: #1e3a5f; font-size: 15px; }
-
 .graph-canvas-box { position: relative; height: 420px; width: 100%; }
-
-.graph-footer {
-    text-align: center; margin-top: 8px;
-    font-size: 11px; color: #94a3b8;
-    font-family: monospace;
-}
+.graph-footer { text-align: center; margin-top: 8px; font-size: 11px; color: #94a3b8; font-family: monospace; }
 
 /* ══ TYPING INDICATOR ═══════════════════════════════════════ */
 .typing-msg {
@@ -379,21 +388,16 @@ input:checked + .slider:before { transform: translateX(16px); }
     align-self: flex-start;
     border-radius: 16px; border-bottom-left-radius: 4px;
     border: 1px solid rgba(255,255,255,0.08);
-    max-width: 200px;
+    max-width: 220px;
 }
-
 .typing-dots { display: flex; gap: 4px; align-items: center; }
-
 .dot {
-    width: 7px; height: 7px;
-    background: #00c6ff;
-    border-radius: 50%;
-    animation: bounce 1.4s infinite both;
+    width: 7px; height: 7px; background: #00c6ff;
+    border-radius: 50%; animation: bounce 1.4s infinite both;
     display: inline-block;
 }
 .dot:nth-child(2) { animation-delay: 0.2s; }
 .dot:nth-child(3) { animation-delay: 0.4s; }
-
 .typing-label { font-size: 12px; color: rgba(255,255,255,0.5); }
 
 @keyframes bounce {
@@ -409,20 +413,19 @@ input:checked + .slider:before { transform: translateX(16px); }
 }
 
 .mic-btn {
-    padding: 12px;
-    border-radius: 50%;
+    padding: 12px; border-radius: 50%;
     border: 1px solid rgba(255,255,255,0.1);
     background: rgba(255,255,255,0.05);
     color: white; font-size: 16px;
     cursor: pointer; transition: all 0.2s;
     flex-shrink: 0; width: 46px; height: 46px;
+    display: flex; align-items: center; justify-content: center;
 }
 .mic-btn:hover { background: rgba(0,198,255,0.15); border-color: rgba(0,198,255,0.4); }
 .mic-btn.active { background: rgba(239,68,68,0.2); border-color: #ef4444; animation: pulse 1s infinite; }
 
 input#messageInput {
-    flex: 1; padding: 13px 18px;
-    border-radius: 28px;
+    flex: 1; padding: 13px 18px; border-radius: 28px;
     border: 1px solid rgba(255,255,255,0.1);
     background: rgba(255,255,255,0.07);
     color: white; font-size: 14px;
@@ -432,8 +435,7 @@ input#messageInput:focus { border-color: rgba(0,198,255,0.4); }
 input#messageInput::placeholder { color: rgba(255,255,255,0.3); }
 
 button#sendBtn {
-    padding: 13px 22px;
-    border-radius: 28px; border: none;
+    padding: 13px 22px; border-radius: 28px; border: none;
     background: linear-gradient(135deg, #0ea5e9, #7c3aed);
     color: white; font-size: 14px; font-weight: 600;
     cursor: pointer; transition: all 0.2s;
@@ -453,7 +455,6 @@ button#sendBtn:active { transform: scale(0.97); }
     from { opacity: 0; transform: translateY(6px); }
     to   { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes pulse {
     0%, 100% { opacity: 1; }
     50%       { opacity: 0.5; }
@@ -471,7 +472,12 @@ button#sendBtn:active { transform: scale(0.97); }
 .light-mode .topbar { border-color: #e2e8f0; }
 .light-mode .topbar h1 { color: #0f172a; }
 .light-mode .assistant { background: #f8fafc; color: #0f172a; border-color: #e2e8f0; }
-.light-mode .markdown-message { background: #f0f4ff; border-color: #bfdbfe; color: #1e293b; }
+.light-mode .markdown-message,
+.light-mode .math-message {
+    background: #f0f4ff;
+    border-color: #bfdbfe;
+    color: #1e293b;
+}
 .light-mode .markdown-message h1 { color: #1d4ed8; border-color: #bfdbfe; }
 .light-mode .markdown-message h2 { color: #1d4ed8; }
 .light-mode .markdown-message h3 { color: #4f46e5; }
@@ -480,14 +486,17 @@ button#sendBtn:active { transform: scale(0.97); }
 .light-mode .markdown-message ul li { color: #1e293b; }
 .light-mode .markdown-message ol li { color: #1e293b; }
 .light-mode .markdown-message code { background: #dbeafe; color: #1d4ed8; }
+.light-mode .markdown-message .katex { color: #1d4ed8; }
+.light-mode .markdown-message .katex-display { background: rgba(29,78,216,0.06); border-color: #3b82f6; }
+.light-mode .markdown-message .katex-display .katex { color: #1e293b; }
 .light-mode input#messageInput { background: #fff; color: #0f172a; border-color: #cbd5e1; }
 .light-mode input#messageInput::placeholder { color: #94a3b8; }
 .light-mode .sidebar nav li { color: #475569; }
 
 /* ══ RESPONSIVE ═════════════════════════════════════════════ */
 @media (max-width: 768px) {
-    .sidebar  { display: none; }
-    .message  { max-width: 92%; }
-    .markdown-message { max-width: 95%; }
+    .sidebar { display: none; }
+    .message { max-width: 92%; }
+    .markdown-message, .math-message { max-width: 95%; font-size: 14px; }
     .graph-wrapper { max-width: 100%; width: 100%; }
 }
