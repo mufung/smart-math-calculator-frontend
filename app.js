@@ -1,8 +1,6 @@
 // ============================================================
 // app.js — Main application logic
-// Path 4: Verification Engine added
-//         After every chat response → calls /verify
-//         Shows verification badge on every answer
+// Path 5: Full persistence — images from S3, graphs re-rendered
 // ============================================================
 
 const CHAT_API     = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
@@ -23,7 +21,6 @@ window.addEventListener("load", async () => {
     showWelcomeMessage();
 });
 
-// ── GENERATE SESSION ID ───────────────────────────────────────
 function generateSessionId() {
     return "session-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
 }
@@ -100,7 +97,7 @@ async function loadSessions() {
     }
 }
 
-// ── LOAD HISTORY ──────────────────────────────────────────────
+// ── LOAD HISTORY — WITH FULL PERSISTENCE ─────────────────────
 async function loadHistory(sid, clickedEl) {
     try {
         sessionId = sid;
@@ -131,27 +128,40 @@ async function loadHistory(sid, clickedEl) {
             return;
         }
 
-        messages.forEach(msg => {
-            if (!msg.text) return;
+        for (const msg of messages) {
+            if (!msg.text && !msg.s3_url && !msg.graph_data) continue;
 
             if (msg.role === "user") {
+                // ── User message ──────────────────────────────────
                 addUserMessage(msg.text);
                 addToHistory("user", msg.text);
+
             } else if (msg.type === "image") {
+                // ── IMAGE — restore from S3 URL ───────────────────
                 if (msg.s3_url) {
+                    // Restore actual image from S3
                     addImageToChat(null, msg.s3_url);
                 } else {
-                    addMathMarkdownMessage("🎨 *Image generated here*");
+                    addMathMarkdownMessage("🎨 *Image (loading...)*");
                 }
                 addToHistory("assistant", msg.text || "[Image]");
+
             } else if (msg.type === "graph") {
-                addMathMarkdownMessage("📈 " + msg.text);
-                addToHistory("assistant", msg.text);
+                // ── GRAPH — re-render from saved data ─────────────
+                if (msg.graph_data && msg.graph_data.x && msg.graph_data.y) {
+                    // Re-render the full interactive graph
+                    addGraph(msg.graph_data);
+                } else {
+                    addMathMarkdownMessage("📈 " + msg.text);
+                }
+                addToHistory("assistant", msg.text || "[Graph]");
+
             } else {
+                // ── Text/math message ─────────────────────────────
                 addMathMarkdownMessage(msg.text);
                 addToHistory("assistant", msg.text);
             }
-        });
+        }
 
         const cont = document.getElementById("chatContainer");
         if (cont) cont.scrollTop = cont.scrollHeight;
@@ -205,7 +215,7 @@ async function sendMessage() {
     }
 }
 
-// ── HANDLE CHAT — WITH VERIFICATION ──────────────────────────
+// ── HANDLE CHAT ───────────────────────────────────────────────
 async function handleChat(message) {
     const contextAdd = getContextualInstruction();
     const history    = getFormattedHistory();
@@ -230,63 +240,54 @@ async function handleChat(message) {
     removeTyping();
     removeClarificationIndicator();
 
-    // Render the AI response
     const msgWrapper = addMathMarkdownMessage(reply);
-
-    // Show quick replies
     setTimeout(showQuickReplies, 400);
 
-    // ── Run verification in background ────────────────────────
-    // Don't block the UI — verify after showing the answer
+    // Verify answer in background
     verifyAndShowBadge(message, reply, msgWrapper);
 }
 
 // ── VERIFY AND SHOW BADGE ─────────────────────────────────────
 async function verifyAndShowBadge(question, aiAnswer, messageWrapper) {
     try {
-        // Show "verifying..." spinner first
-        if (messageWrapper) {
-            const spinner = document.createElement("div");
-            spinner.id        = "verify-spinner-" + Date.now();
-            spinner.className = "verify-spinner";
-            spinner.innerHTML = `<span class="verify-dot"></span> Verifying answer...`;
-            messageWrapper.appendChild(spinner);
+        if (!messageWrapper) return;
 
-            // Call verification API
-            const res = await fetch(VERIFY_API, {
-                method:  "POST",
-                headers: { "Content-Type": "application/json" },
-                body:    JSON.stringify({
-                    question,
-                    ai_answer: aiAnswer.substring(0, 1000), // limit size
-                    topic:     detectTopic(question) || "general"
-                })
-            });
+        const spinner     = document.createElement("div");
+        spinner.id        = "verify-spinner-" + Date.now();
+        spinner.className = "verify-spinner";
+        spinner.innerHTML = `<span class="verify-dot"></span> Verifying answer...`;
+        messageWrapper.appendChild(spinner);
 
-            const verifyData = await res.json();
-            let result = verifyData;
-            if (typeof result.body === "string") result = JSON.parse(result.body);
+        const res = await fetch(VERIFY_API, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({
+                question,
+                ai_answer: aiAnswer.substring(0, 1000),
+                topic:     detectTopic(question) || "general"
+            })
+        });
 
-            // Remove spinner
-            spinner.remove();
+        const verifyData = await res.json();
+        let result       = verifyData;
+        if (typeof result.body === "string") result = JSON.parse(result.body);
 
-            // Add verification badge to the message
-            if (result && result.badge) {
-                addVerificationBadge(messageWrapper, result);
-            }
+        spinner.remove();
+
+        if (result && result.badge) {
+            addVerificationBadge(messageWrapper, result);
         }
     } catch (err) {
         console.warn("Verification failed silently:", err);
-        // Verification failure should never break the chat
     }
 }
 
-// ── ADD VERIFICATION BADGE TO MESSAGE ─────────────────────────
+// ── ADD VERIFICATION BADGE ────────────────────────────────────
 function addVerificationBadge(messageWrapper, result) {
     if (!messageWrapper || !result) return;
 
-    const badge       = document.createElement("div");
-    badge.className   = `verification-badge ${result.badge_class || "badge-info"}`;
+    const badge     = document.createElement("div");
+    badge.className = `verification-badge ${result.badge_class || "badge-info"}`;
 
     badge.innerHTML = `
         <span class="badge-icon">${result.badge || "ℹ️"}</span>
@@ -308,7 +309,6 @@ function addVerificationBadge(messageWrapper, result) {
     messageWrapper.appendChild(badge);
 }
 
-// ── TOGGLE BADGE DETAILS ──────────────────────────────────────
 function toggleBadgeDetails(btn) {
     const details = btn.nextElementSibling;
     if (!details) return;
@@ -339,8 +339,7 @@ async function handleGraph(message) {
 **Try these examples:**
 - plot x squared
 - graph sin(x)
-- plot x cubed minus 2x
-- graph cos(x) + x`);
+- plot x cubed minus 2x`);
     }
 }
 
@@ -366,8 +365,8 @@ async function handleImage(message) {
         const sizeMatch  = msg.match(/size\s*(\d+)|(\d+)\s*px/);
         const size       = sizeMatch ? parseInt(sizeMatch[1] || sizeMatch[2]) : 150;
 
-        const colorList = ["red","blue","green","yellow","purple","orange","pink","cyan","royalblue","gold","white"];
-        let color       = "royalblue";
+        const colorList  = ["red","blue","green","yellow","purple","orange","pink","cyan","royalblue","gold","white"];
+        let color        = "royalblue";
         for (const c of colorList) { if (msg.includes(c)) { color = c; break; } }
 
         body = {
@@ -388,10 +387,18 @@ async function handleImage(message) {
         let data = JSON.parse(await res.text());
         if (typeof data.body === "string") data = JSON.parse(data.body);
 
-        if      (data.data_url)    addImageToChat(data.data_url);
-        else if (data.image)       addImageToChat("data:image/png;base64," + data.image);
-        else if (data.images?.[0]) addImageToChat(data.images[0].data_url);
-        else addMathMarkdownMessage("Could not generate image: " + (data.error || "Unknown error"));
+        // Use S3 URL if available for persistent storage
+        const displayUrl = data.s3_url || data.data_url || (data.image ? "data:image/png;base64," + data.image : null);
+        const s3Url      = data.s3_url || null;
+
+        if (displayUrl) {
+            addImageToChat(displayUrl, s3Url);
+        } else if (data.images?.[0]) {
+            const img = data.images[0];
+            addImageToChat(img.s3_url || img.data_url, img.s3_url);
+        } else {
+            addMathMarkdownMessage("Could not generate image: " + (data.error || "Unknown error"));
+        }
 
         addToHistory("user",      message);
         addToHistory("assistant", "[Image generated]");
