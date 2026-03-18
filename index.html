@@ -146,41 +146,48 @@
 <script src="app.js"></script>
 
 <script>
-// ── KATEX ────────────────────────────────────────────────────
+// ── KATEX ──────────────────────────────────────────────────
 function onKatexLoaded() {
     renderAllMathInPage();
 }
 
-// ── THEME TOGGLE — FIXED ─────────────────────────────────────
-var themeToggle = document.getElementById("themeToggle");
-var themeLabel  = document.getElementById("themeLabel");
+// ── THEME TOGGLE ───────────────────────────────────────────
+(function() {
+    var toggle = document.getElementById("themeToggle");
+    var label  = document.getElementById("themeLabel");
 
-// Restore saved theme on load
-var savedTheme = localStorage.getItem("mathAiTheme");
-if (savedTheme === "light") {
-    document.body.classList.add("light-mode");
-    themeToggle.checked  = true;
-    themeLabel.textContent = "Dark Mode";
-}
-
-themeToggle.addEventListener("change", function() {
-    if (themeToggle.checked) {
+    // Restore saved preference
+    var saved = localStorage.getItem("mathAiTheme");
+    if (saved === "light") {
         document.body.classList.add("light-mode");
-        themeLabel.textContent = "Dark Mode";
-        localStorage.setItem("mathAiTheme", "light");
+        toggle.checked    = true;
+        label.textContent = "Dark Mode";
     } else {
         document.body.classList.remove("light-mode");
-        themeLabel.textContent = "Light Mode";
-        localStorage.setItem("mathAiTheme", "dark");
+        toggle.checked    = false;
+        label.textContent = "Light Mode";
     }
-});
 
-// ── SEND BUTTON ───────────────────────────────────────────────
+    // On change
+    toggle.addEventListener("change", function() {
+        if (this.checked) {
+            document.body.classList.add("light-mode");
+            label.textContent = "Dark Mode";
+            localStorage.setItem("mathAiTheme", "light");
+        } else {
+            document.body.classList.remove("light-mode");
+            label.textContent = "Light Mode";
+            localStorage.setItem("mathAiTheme", "dark");
+        }
+    });
+})();
+
+// ── SEND BUTTON ────────────────────────────────────────────
 document.getElementById("sendBtn").addEventListener("click", function() {
     sendMessage();
 });
 
-// ── ENTER KEY ─────────────────────────────────────────────────
+// ── ENTER KEY ──────────────────────────────────────────────
 document.getElementById("messageInput").addEventListener("keypress", function(e) {
     if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
@@ -188,9 +195,9 @@ document.getElementById("messageInput").addEventListener("keypress", function(e)
     }
 });
 
-// ── MIC BUTTON ────────────────────────────────────────────────
+// ── MIC BUTTON ─────────────────────────────────────────────
 document.getElementById("micBtn").addEventListener("click", function() {
-    addMathMarkdownMessage("🎤 **Voice input** is coming in Path 7!");
+    addMathMarkdownMessage("🎤 Voice input coming in Path 7!");
 });
 </script>
 
