@@ -1,40 +1,59 @@
- const CHAT_API     = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
+// ============================================================
+// app.js — Main application logic for Math AI Assistant
+// Handles: API calls, routing, session management
+// Path 1: Uses renderer.js for all message rendering
+// ============================================================
+
+// ── API ENDPOINTS ─────────────────────────────────────────────
+const CHAT_API     = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
 const GRAPH_API    = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/graph";
 const IMAGE_API    = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/image";
 const SESSIONS_API = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/sessions";
 const HISTORY_API  = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/history";
 
+// ── SESSION MANAGEMENT ────────────────────────────────────────
 let sessionId = localStorage.getItem("sessionId") || generateSessionId();
 localStorage.setItem("sessionId", sessionId);
 
+// ── ON PAGE LOAD ──────────────────────────────────────────────
 window.addEventListener("load", async () => {
     await loadSessions();
-    addMessage("Hello! I am Math AI Assistant — your personal math tutor. Ask me anything — algebra, calculus, trigonometry, statistics and more!", "assistant");
+    showWelcomeMessage(); // from renderer.js
 });
 
+// ── GENERATE SESSION ID ───────────────────────────────────────
 function generateSessionId() {
     return "session-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
 }
 
+// ── NEW CHAT ──────────────────────────────────────────────────
 function startNewChat() {
     sessionId = generateSessionId();
     localStorage.setItem("sessionId", sessionId);
-    document.getElementById("chatContainer").innerHTML = "";
-    document.querySelectorAll(".chat-item").forEach(el => el.classList.remove("active-chat"));
-    addMessage("New chat started! Ask me any math question!", "assistant");
+
+    const container = document.getElementById("chatContainer");
+    if (container) container.innerHTML = "";
+
+    document.querySelectorAll(".chat-item").forEach(el => {
+        el.classList.remove("active-chat");
+    });
+
+    showWelcomeMessage(); // from renderer.js
 }
 
-// ── LOAD SESSIONS ─────────────────────────────────────────────────────────────
+// ── LOAD ALL SESSIONS INTO SIDEBAR ────────────────────────────
 async function loadSessions() {
     const list = document.getElementById("chatList");
     if (!list) return;
+
     try {
         list.innerHTML = `<li class="loading-chats">Loading chats...</li>`;
+
         const res      = await fetch(SESSIONS_API);
         const text     = await res.text();
-        console.log("Sessions raw response:", text);
         const data     = JSON.parse(text);
         const sessions = data.sessions || [];
+
         list.innerHTML = "";
 
         if (sessions.length === 0) {
@@ -46,10 +65,15 @@ async function loadSessions() {
             const li       = document.createElement("li");
             li.className   = "chat-item";
             li.dataset.sid = session.sessionId;
-            if (session.sessionId === sessionId) li.classList.add("active-chat");
+
+            if (session.sessionId === sessionId) {
+                li.classList.add("active-chat");
+            }
 
             const date = session.date
-                ? new Date(Number(session.date)).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                ? new Date(Number(session.date)).toLocaleDateString("en-US", {
+                    month: "short", day: "numeric"
+                  })
                 : "";
 
             li.innerHTML = `
@@ -64,62 +88,86 @@ async function loadSessions() {
         });
 
         console.log(`Loaded ${sessions.length} sessions`);
+
     } catch (err) {
         console.error("Failed to load sessions:", err);
         list.innerHTML = `<li class="no-chats">Could not load chats</li>`;
     }
 }
 
-// ── LOAD HISTORY ──────────────────────────────────────────────────────────────
+// ── LOAD CHAT HISTORY ─────────────────────────────────────────
 async function loadHistory(sid, clickedEl) {
     try {
         sessionId = sid;
         localStorage.setItem("sessionId", sid);
-        document.querySelectorAll(".chat-item").forEach(el => el.classList.remove("active-chat"));
+
+        document.querySelectorAll(".chat-item").forEach(el => {
+            el.classList.remove("active-chat");
+        });
         if (clickedEl) clickedEl.classList.add("active-chat");
 
         const container = document.getElementById("chatContainer");
-        container.innerHTML = "";
-        addMessage("Loading chat history...", "assistant");
+        if (container) container.innerHTML = "";
+
+        addMarkdownMessage("Loading chat history...");
 
         const res  = await fetch(`${HISTORY_API}?sessionId=${encodeURIComponent(sid)}`);
         const data = await res.json();
-        container.innerHTML = "";
+
+        if (container) container.innerHTML = "";
 
         const messages = data.messages || [];
+
         if (messages.length === 0) {
-            addMessage("No messages found in this chat.", "assistant");
+            addMarkdownMessage("No messages found in this chat.");
             return;
         }
 
         messages.forEach(msg => {
             if (!msg.text) return;
+
             if (msg.role === "user") {
-                addMessage(msg.text, "user");
+                addUserMessage(msg.text);
+
+            } else if (msg.type === "image") {
+                // Path 6 will handle actual image restoration from S3
+                // For now show placeholder
+                if (msg.s3_url) {
+                    addImageToChat(null, msg.s3_url);
+                } else {
+                    addMarkdownMessage("🎨 *Image was generated here*");
+                }
+
+            } else if (msg.type === "graph") {
+                addMarkdownMessage("📈 " + msg.text);
+
             } else {
-                if      (msg.type === "image") addMessage("🎨 " + msg.text, "assistant");
-                else if (msg.type === "graph") addMessage("📈 " + msg.text, "assistant");
-                else                           addMathMessage(msg.text);
+                addMarkdownMessage(msg.text);
             }
         });
 
-        container.scrollTop = container.scrollHeight;
+        const cont = document.getElementById("chatContainer");
+        if (cont) cont.scrollTop = cont.scrollHeight;
+
     } catch (err) {
         console.error("Load history error:", err);
-        addMessage("Could not load chat history.", "assistant");
+        addMarkdownMessage("Could not load chat history. Please try again.");
     }
 }
 
-// ── SEND MESSAGE ──────────────────────────────────────────────────────────────
+// ── SEND MESSAGE ──────────────────────────────────────────────
 async function sendMessage() {
     const input   = document.getElementById("messageInput");
+    if (!input) return;
+
     const message = input.value.trim();
     if (!message) return;
 
-    addMessage(message, "user");
+    addUserMessage(message); // from renderer.js
     input.value = "";
-    showTyping();
+    showTyping(); // from renderer.js
 
+    // Smart intent detection
     const isGraphRequest = /\b(graph|plot|chart|sketch)\b/i.test(message);
     const isImageRequest = /^(draw|create|sketch|show)\s.*(square|circle|triangle|hexagon|polygon|rectangle|pentagon|octagon|shape)/i.test(message)
         || /\b(imagen|generate image|ai image|ai picture)\b/i.test(message);
@@ -132,48 +180,64 @@ async function sendMessage() {
         } else {
             await handleChat(message);
         }
+
+        // Refresh sidebar after 2s
         setTimeout(loadSessions, 2000);
+
     } catch (error) {
         removeTyping();
-        addMessage("Something went wrong. Please try again.", "assistant");
+        addMarkdownMessage("Something went wrong. Please try again.");
         console.error("sendMessage error:", error);
     }
 }
 
-// ── HANDLE CHAT ───────────────────────────────────────────────────────────────
+// ── HANDLE CHAT ───────────────────────────────────────────────
 async function handleChat(message) {
     const res = await fetch(CHAT_API, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ message, sessionId })
     });
+
     let data = await res.json();
     if (typeof data.body === "string") data = JSON.parse(data.body);
+
     sessionId = data.sessionId || sessionId;
     localStorage.setItem("sessionId", sessionId);
+
     removeTyping();
-    addMathMessage(data.reply || "No response received.");
+
+    // Use markdown renderer for AI responses
+    addMarkdownMessage(data.reply || "No response received.");
 }
 
-// ── HANDLE GRAPH ──────────────────────────────────────────────────────────────
+// ── HANDLE GRAPH ──────────────────────────────────────────────
 async function handleGraph(message) {
     const res = await fetch(GRAPH_API, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ expression: message, sessionId })
     });
+
     let data = await res.json();
     if (typeof data.body === "string") data = JSON.parse(data.body);
+
     removeTyping();
 
     if (data.x && data.y) {
         addGraph(data);
     } else {
-        addMessage("Could not generate graph.\n\nTry:\n- plot x squared\n- graph sin(x)\n- plot x cubed minus 2x", "assistant");
+        addMarkdownMessage(`Could not generate graph.
+
+**Try these examples:**
+- plot x squared
+- graph sin(x)
+- plot x cubed minus 2x
+- graph cos(x) + x`);
     }
 }
 
-// ── HANDLE IMAGE ──────────────────────────────────────────────────────────────
+// ── HANDLE IMAGE ──────────────────────────────────────────────
 async function handleImage(message) {
     const msg = message.toLowerCase();
     let body  = {};
@@ -199,7 +263,10 @@ async function handleImage(message) {
         let color       = "royalblue";
         for (const c of colorList) { if (msg.includes(c)) { color = c; break; } }
 
-        body = { action: "draw_shape", shape, sides, size, color, outline: "white", label: message, sessionId };
+        body = {
+            action: "draw_shape", shape, sides, size,
+            color, outline: "white", label: message, sessionId
+        };
     }
 
     const res = await fetch(IMAGE_API, {
@@ -207,153 +274,28 @@ async function handleImage(message) {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify(body)
     });
+
     removeTyping();
 
     try {
         let data = JSON.parse(await res.text());
         if (typeof data.body === "string") data = JSON.parse(data.body);
+
         if      (data.data_url)    addImageToChat(data.data_url);
         else if (data.image)       addImageToChat("data:image/png;base64," + data.image);
         else if (data.images?.[0]) addImageToChat(data.images[0].data_url);
-        else addMessage("Could not generate image: " + (data.error || "Unknown error"), "assistant");
+        else addMarkdownMessage("Could not generate image: " + (data.error || "Unknown error"));
+
     } catch (e) {
         console.error("Image error:", e);
-        addMessage("Could not display image.", "assistant");
+        addMarkdownMessage("Could not display image.");
     }
 }
 
-// ── ADD MATH MESSAGE — renders LaTeX with KaTeX ───────────────────────────────
-function addMathMessage(text) {
-    const container = document.getElementById("chatContainer");
-
-    const wrapper         = document.createElement("div");
-    wrapper.className     = "message assistant math-message";
-
-    const content         = document.createElement("div");
-    content.className     = "math-content";
-
-    // Convert markdown bold **text** to <strong>text</strong>
-    // Convert newlines to <br>
-    // Keep $ and $$ for KaTeX
-    let html = escapeHtmlKeepMath(text)
-        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\n/g, "<br>");
-
-    content.innerHTML = html;
-    wrapper.appendChild(content);
-    container.appendChild(wrapper);
-
-    // Render KaTeX math after DOM insertion
-    if (window.renderMathInElement) {
-        renderMathInElement(content, {
-            delimiters: [
-                { left: "$$", right: "$$", display: true  },
-                { left: "$",  right: "$",  display: false }
-            ],
-            throwOnError: false,
-            output: "html"
-        });
-    }
-
-    container.scrollTop = container.scrollHeight;
-}
-
-// ── ESCAPE HTML but preserve $ math delimiters ────────────────────────────────
-function escapeHtmlKeepMath(text) {
-    // Split on math regions, escape HTML outside, keep inside math raw
-    const parts = [];
-    let remaining = text;
-    const mathRegex = /(\$\$[\s\S]*?\$\$|\$[^$\n]+?\$)/g;
-    let lastIndex = 0;
-    let match;
-
-    while ((match = mathRegex.exec(text)) !== null) {
-        // Escape the text before this math block
-        const before = text.substring(lastIndex, match.index);
-        parts.push(escapeHtmlBasic(before));
-        // Keep the math block as-is
-        parts.push(match[0]);
-        lastIndex = match.index + match[0].length;
-    }
-
-    // Escape remaining text after last math block
-    parts.push(escapeHtmlBasic(text.substring(lastIndex)));
-
-    return parts.join("");
-}
-
-function escapeHtmlBasic(str) {
-    return str
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-}
-
-// ── ADD PLAIN MESSAGE ─────────────────────────────────────────────────────────
-function addMessage(text, role) {
-    const container      = document.getElementById("chatContainer");
-    const div            = document.createElement("div");
-    div.className        = "message " + role;
-    div.style.whiteSpace = "pre-line";
-    div.innerText        = text;
-    container.appendChild(div);
-    container.scrollTop  = container.scrollHeight;
-}
-
-// ── ADD IMAGE ─────────────────────────────────────────────────────────────────
-function addImageToChat(dataUrl) {
-    const container   = document.getElementById("chatContainer");
-    const wrapper     = document.createElement("div");
-    wrapper.className = "message assistant";
-    const img         = document.createElement("img");
-    img.src           = dataUrl;
-    img.alt           = "Generated image";
-    img.style.cssText = "max-width:100%;border-radius:12px;margin-top:6px;display:block;cursor:pointer;";
-    img.onclick       = () => window.open(dataUrl, "_blank");
-    img.onerror       = () => { wrapper.innerText = "Image could not be displayed."; };
-    wrapper.appendChild(img);
-    container.appendChild(wrapper);
-    container.scrollTop = container.scrollHeight;
-}
-
-// ── RENDER GRAPH ──────────────────────────────────────────────────────────────
+// ── RENDER GRAPH ──────────────────────────────────────────────
 function addGraph(data) {
-    const container = document.getElementById("chatContainer");
-
-    const wrapper         = document.createElement("div");
-    wrapper.className     = "message assistant graph-wrapper";
-    wrapper.style.cssText = `
-        background: white;
-        padding: 20px 16px 16px;
-        border-radius: 16px;
-        max-width: 98%;
-        width: 98%;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-        border: 1px solid #e2e8f0;
-    `;
-
-    const titleBar         = document.createElement("div");
-    titleBar.style.cssText = "display:flex;align-items:center;justify-content:center;margin-bottom:14px;gap:8px;";
-    titleBar.innerHTML     = `
-        <span style="font-size:18px">📈</span>
-        <span style="font-weight:700;color:#1e3a5f;font-size:15px;font-family:'Segoe UI',sans-serif;">
-            ${escapeHtmlBasic(data.label || "Graph")}
-        </span>`;
-    wrapper.appendChild(titleBar);
-
-    const canvasBox         = document.createElement("div");
-    canvasBox.style.cssText = "position:relative;height:440px;width:100%;background:#fafafa;border-radius:10px;border:1px solid #e5e7eb;";
-    const canvas            = document.createElement("canvas");
-    canvasBox.appendChild(canvas);
-    wrapper.appendChild(canvasBox);
-
-    const footer         = document.createElement("div");
-    footer.style.cssText = "text-align:center;margin-top:10px;font-size:11px;color:#94a3b8;font-family:monospace;";
-    footer.innerText     = `f(x) = ${data.expression || data.label}`;
-    wrapper.appendChild(footer);
-
-    container.appendChild(wrapper);
-    container.scrollTop = container.scrollHeight;
+    const canvas = createGraphWrapper(data.label, data.expression); // from renderer.js
+    if (!canvas) return;
 
     const points = [];
     const xArr   = data.x || [];
@@ -370,7 +312,7 @@ function addGraph(data) {
     points.sort((a, b) => a.x - b.x);
 
     if (points.length === 0) {
-        canvasBox.innerHTML = "<p style='color:red;text-align:center;padding-top:180px;'>No valid data points.</p>";
+        addMarkdownMessage("No valid data points to plot.");
         return;
     }
 
@@ -389,10 +331,9 @@ function addGraph(data) {
     if (yMax < 0) yMax = -(yMin * 0.15);
 
     const xRange    = xMax - xMin;
-    const xTickStep = xRange <= 4 ? 0.5 : xRange <= 8 ? 1 : xRange <= 16 ? 2 : xRange <= 40 ? 5 : 10;
-
+    const xTickStep = xRange <= 4 ? 0.5 : xRange <= 8 ? 1 : xRange <= 16 ? 2 : 5;
     const yDispRange = yMax - yMin;
-    const yTickStep  = yDispRange <= 4 ? 0.5 : yDispRange <= 8 ? 1 : yDispRange <= 16 ? 2 : yDispRange <= 40 ? 5 : yDispRange <= 100 ? 10 : 20;
+    const yTickStep  = yDispRange <= 4 ? 0.5 : yDispRange <= 8 ? 1 : yDispRange <= 16 ? 2 : yDispRange <= 40 ? 5 : 10;
 
     new Chart(canvas, {
         type: "scatter",
@@ -415,10 +356,8 @@ function addGraph(data) {
                 legend: { display: false },
                 tooltip: {
                     backgroundColor: "#1e3a5f",
-                    titleColor:      "#fff",
-                    bodyColor:       "#93c5fd",
-                    padding:         10,
-                    cornerRadius:    8,
+                    titleColor: "#fff", bodyColor: "#93c5fd",
+                    padding: 10, cornerRadius: 8,
                     callbacks: {
                         title: () => data.label || "f(x)",
                         label: ctx => `x = ${ctx.parsed.x.toFixed(2)},  y = ${ctx.parsed.y.toFixed(3)}`
@@ -443,26 +382,4 @@ function addGraph(data) {
             }
         }
     });
-}
-
-// ── TYPING INDICATOR ──────────────────────────────────────────────────────────
-function showTyping() {
-    const container = document.getElementById("chatContainer");
-    const el        = document.createElement("div");
-    el.id           = "typing";
-    el.className    = "message assistant typing-msg";
-    el.innerHTML    = `<span class="dot"></span><span class="dot"></span><span class="dot"></span>`;
-    container.appendChild(el);
-    container.scrollTop = container.scrollHeight;
-}
-
-function removeTyping() {
-    const el = document.getElementById("typing");
-    if (el) el.remove();
-}
-
-function escapeHtml(text) {
-    const div = document.createElement("div");
-    div.appendChild(document.createTextNode(text || ""));
-    return div.innerHTML;
 }
