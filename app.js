@@ -1,7 +1,8 @@
 // ============================================================
-// app.js — Main application logic for Math AI Assistant
-// Handles: API calls, routing, session management
-// Path 1: Uses renderer.js for all message rendering
+// app.js — Main application logic
+// Path 3: Uses conversation.js for Socratic flow
+//         Sends full history to Lambda
+//         Detects confusion and understanding
 // ============================================================
 
 // ── API ENDPOINTS ─────────────────────────────────────────────
@@ -11,12 +12,15 @@ const IMAGE_API    = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/pro
 const SESSIONS_API = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/sessions";
 const HISTORY_API  = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/history";
 
-// ── SESSION MANAGEMENT ────────────────────────────────────────
+// ── SESSION ───────────────────────────────────────────────────
 let sessionId = localStorage.getItem("sessionId") || generateSessionId();
 localStorage.setItem("sessionId", sessionId);
 
 // ── ON PAGE LOAD ──────────────────────────────────────────────
 window.addEventListener("load", async () => {
+    // Initialize conversation tracking from conversation.js
+    initConversation(sessionId);
+
     await loadSessions();
     showWelcomeMessage(); // from renderer.js
 });
@@ -31,6 +35,10 @@ function startNewChat() {
     sessionId = generateSessionId();
     localStorage.setItem("sessionId", sessionId);
 
+    // Reset conversation history for new chat
+    clearHistory(); // from conversation.js
+    initConversation(sessionId);
+
     const container = document.getElementById("chatContainer");
     if (container) container.innerHTML = "";
 
@@ -41,7 +49,7 @@ function startNewChat() {
     showWelcomeMessage(); // from renderer.js
 }
 
-// ── LOAD ALL SESSIONS INTO SIDEBAR ────────────────────────────
+// ── LOAD SESSIONS ─────────────────────────────────────────────
 async function loadSessions() {
     const list = document.getElementById("chatList");
     if (!list) return;
@@ -101,6 +109,10 @@ async function loadHistory(sid, clickedEl) {
         sessionId = sid;
         localStorage.setItem("sessionId", sid);
 
+        // Reset and re-init conversation for this session
+        clearHistory();
+        initConversation(sid);
+
         document.querySelectorAll(".chat-item").forEach(el => {
             el.classList.remove("active-chat");
         });
@@ -123,26 +135,31 @@ async function loadHistory(sid, clickedEl) {
             return;
         }
 
+        // Rebuild conversation history from DynamoDB for context
         messages.forEach(msg => {
             if (!msg.text) return;
 
             if (msg.role === "user") {
                 addUserMessage(msg.text);
+                // Rebuild history context
+                addToHistory("user", msg.text);
 
             } else if (msg.type === "image") {
-                // Path 6 will handle actual image restoration from S3
-                // For now show placeholder
                 if (msg.s3_url) {
                     addImageToChat(null, msg.s3_url);
                 } else {
-                    addMarkdownMessage("🎨 *Image was generated here*");
+                    addMarkdownMessage("🎨 *Image generated here*");
                 }
+                addToHistory("assistant", msg.text || "[Image generated]");
 
             } else if (msg.type === "graph") {
                 addMarkdownMessage("📈 " + msg.text);
+                addToHistory("assistant", msg.text);
 
             } else {
                 addMarkdownMessage(msg.text);
+                // Rebuild history context
+                addToHistory("assistant", msg.text);
             }
         });
 
@@ -155,19 +172,34 @@ async function loadHistory(sid, clickedEl) {
     }
 }
 
-// ── SEND MESSAGE ──────────────────────────────────────────────
+// ── SEND MESSAGE — MAIN ENTRY POINT ──────────────────────────
 async function sendMessage() {
-    const input   = document.getElementById("messageInput");
+    const input = document.getElementById("messageInput");
     if (!input) return;
 
     const message = input.value.trim();
     if (!message) return;
 
-    addUserMessage(message); // from renderer.js
+    addUserMessage(message);
     input.value = "";
-    showTyping(); // from renderer.js
+    showTyping();
 
-    // Smart intent detection
+    // Detect topic from message
+    detectTopic(message); // from conversation.js
+
+    // Check if student is expressing confusion or understanding
+    const isConfused    = isConfusionMessage(message);    // from conversation.js
+    const isUnderstood  = isUnderstandingMessage(message); // from conversation.js
+
+    if (isConfused) {
+        recordClarificationRequest(); // from conversation.js
+        showClarificationIndicator(); // show visual indicator
+    }
+    if (isUnderstood) {
+        recordUnderstanding(); // from conversation.js
+    }
+
+    // Intent detection for routing
     const isGraphRequest = /\b(graph|plot|chart|sketch)\b/i.test(message);
     const isImageRequest = /^(draw|create|sketch|show)\s.*(square|circle|triangle|hexagon|polygon|rectangle|pentagon|octagon|shape)/i.test(message)
         || /\b(imagen|generate image|ai image|ai picture)\b/i.test(message);
@@ -181,7 +213,6 @@ async function sendMessage() {
             await handleChat(message);
         }
 
-        // Refresh sidebar after 2s
         setTimeout(loadSessions, 2000);
 
     } catch (error) {
@@ -191,12 +222,23 @@ async function sendMessage() {
     }
 }
 
-// ── HANDLE CHAT ───────────────────────────────────────────────
+// ── HANDLE CHAT — WITH FULL CONVERSATION HISTORY ─────────────
 async function handleChat(message) {
+    // Get contextual instruction based on confusion level
+    const contextAdd = getContextualInstruction(); // from conversation.js
+
+    // Get full formatted history
+    const history = getFormattedHistory(); // from conversation.js
+
     const res = await fetch(CHAT_API, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ message, sessionId })
+        body:    JSON.stringify({
+            message,
+            sessionId,
+            history,       // ← Send full history to Lambda
+            contextAdd     // ← Send confusion context if any
+        })
     });
 
     let data = await res.json();
@@ -205,10 +247,17 @@ async function handleChat(message) {
     sessionId = data.sessionId || sessionId;
     localStorage.setItem("sessionId", sessionId);
 
-    removeTyping();
+    const reply = data.reply || "No response received.";
 
-    // Use markdown renderer for AI responses
-    addMarkdownMessage(data.reply || "No response received.");
+    // Add BOTH sides to conversation history for next message
+    addToHistory("user",      message); // from conversation.js
+    addToHistory("assistant", reply);   // from conversation.js
+
+    removeTyping();
+    removeClarificationIndicator();
+
+    // Render with full math + markdown
+    addMathMarkdownMessage(reply); // from math-renderer.js
 }
 
 // ── HANDLE GRAPH ──────────────────────────────────────────────
@@ -225,15 +274,19 @@ async function handleGraph(message) {
     removeTyping();
 
     if (data.x && data.y) {
+        // Add to history as text description
+        addToHistory("user",      message);
+        addToHistory("assistant", `Graph plotted: ${data.label || message}`);
         addGraph(data);
     } else {
-        addMarkdownMessage(`Could not generate graph.
+        const errMsg = `Could not generate graph.
 
 **Try these examples:**
 - plot x squared
 - graph sin(x)
 - plot x cubed minus 2x
-- graph cos(x) + x`);
+- graph cos(x) + x`;
+        addMathMarkdownMessage(errMsg);
     }
 }
 
@@ -284,17 +337,20 @@ async function handleImage(message) {
         if      (data.data_url)    addImageToChat(data.data_url);
         else if (data.image)       addImageToChat("data:image/png;base64," + data.image);
         else if (data.images?.[0]) addImageToChat(data.images[0].data_url);
-        else addMarkdownMessage("Could not generate image: " + (data.error || "Unknown error"));
+        else addMathMarkdownMessage("Could not generate image: " + (data.error || "Unknown error"));
+
+        addToHistory("user",      message);
+        addToHistory("assistant", "[Image generated successfully]");
 
     } catch (e) {
         console.error("Image error:", e);
-        addMarkdownMessage("Could not display image.");
+        addMathMarkdownMessage("Could not display image.");
     }
 }
 
 // ── RENDER GRAPH ──────────────────────────────────────────────
 function addGraph(data) {
-    const canvas = createGraphWrapper(data.label, data.expression); // from renderer.js
+    const canvas = createGraphWrapper(data.label, data.expression);
     if (!canvas) return;
 
     const points = [];
@@ -305,33 +361,31 @@ function addGraph(data) {
         const x = Number(xArr[i]);
         const y = yArr[i];
         if (y !== null && y !== undefined && isFinite(Number(y)) && isFinite(x)) {
-            points.push({ x: x, y: Number(y) });
+            points.push({ x, y: Number(y) });
         }
     }
-
     points.sort((a, b) => a.x - b.x);
 
     if (points.length === 0) {
-        addMarkdownMessage("No valid data points to plot.");
+        addMathMarkdownMessage("No valid data points to plot.");
         return;
     }
 
-    const allY   = points.map(p => p.y);
-    const minY   = Math.min(...allY);
-    const maxY   = Math.max(...allY);
-    const yRange = maxY - minY || 4;
-    const yPad   = yRange * 0.20;
-
-    const xMin = Number(data.x_min !== undefined ? data.x_min : -5);
-    const xMax = Number(data.x_max !== undefined ? data.x_max :  5);
-    let yMin   = Number(data.y_min !== undefined ? data.y_min : minY - yPad);
-    let yMax   = Number(data.y_max !== undefined ? data.y_max : maxY + yPad);
+    const allY       = points.map(p => p.y);
+    const minY       = Math.min(...allY);
+    const maxY       = Math.max(...allY);
+    const yRange     = maxY - minY || 4;
+    const yPad       = yRange * 0.20;
+    const xMin       = Number(data.x_min !== undefined ? data.x_min : -5);
+    const xMax       = Number(data.x_max !== undefined ? data.x_max :  5);
+    let   yMin       = Number(data.y_min !== undefined ? data.y_min : minY - yPad);
+    let   yMax       = Number(data.y_max !== undefined ? data.y_max : maxY + yPad);
 
     if (yMin > 0) yMin = -(yMax * 0.15);
     if (yMax < 0) yMax = -(yMin * 0.15);
 
-    const xRange    = xMax - xMin;
-    const xTickStep = xRange <= 4 ? 0.5 : xRange <= 8 ? 1 : xRange <= 16 ? 2 : 5;
+    const xRange     = xMax - xMin;
+    const xTickStep  = xRange <= 4 ? 0.5 : xRange <= 8 ? 1 : xRange <= 16 ? 2 : 5;
     const yDispRange = yMax - yMin;
     const yTickStep  = yDispRange <= 4 ? 0.5 : yDispRange <= 8 ? 1 : yDispRange <= 16 ? 2 : yDispRange <= 40 ? 5 : 10;
 
@@ -339,19 +393,15 @@ function addGraph(data) {
         type: "scatter",
         data: {
             datasets: [{
-                data:             points,
-                showLine:         true,
-                borderColor:      "#2563eb",
-                borderWidth:      2.5,
-                pointRadius:      0,
-                pointHoverRadius: 5,
-                tension:          0,
-                fill:             false
+                data: points, showLine: true,
+                borderColor: "#2563eb", borderWidth: 2.5,
+                pointRadius: 0, pointHoverRadius: 5,
+                tension: 0, fill: false
             }]
         },
         options: {
             responsive: true, maintainAspectRatio: false,
-            animation: { duration: 700, easing: "easeInOutQuart" },
+            animation: { duration: 700 },
             plugins: {
                 legend: { display: false },
                 tooltip: {
@@ -382,4 +432,33 @@ function addGraph(data) {
             }
         }
     });
+}
+
+// ── CLARIFICATION VISUAL INDICATOR ───────────────────────────
+function showClarificationIndicator() {
+    const inputArea = document.querySelector(".inputArea");
+    if (!inputArea) return;
+
+    removeClarificationIndicator();
+
+    const banner      = document.createElement("div");
+    banner.id         = "clarificationBanner";
+    banner.className  = "clarification-banner";
+    banner.innerHTML  = `
+        <span class="clarification-icon">🔄</span>
+        <span>Re-explaining with a simpler approach...</span>
+    `;
+    inputArea.parentNode.insertBefore(banner, inputArea);
+}
+
+function removeClarificationIndicator() {
+    const el = document.getElementById("clarificationBanner");
+    if (el) el.remove();
+}
+
+// ── ESCAPE HTML ───────────────────────────────────────────────
+function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.appendChild(document.createTextNode(text || ""));
+    return div.innerHTML;
 }
