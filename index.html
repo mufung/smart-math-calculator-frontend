@@ -1,4 +1,4 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -6,21 +6,20 @@
 <title>HighupWeb Academy | Math AI Assistant</title>
 <link rel="stylesheet" href="style.css">
 
-<!-- KaTeX CSS — loads first so math looks right immediately -->
+<!-- KaTeX CSS -->
 <link
   rel="stylesheet"
   href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css"
   crossorigin="anonymous"
 />
-
 </head>
 <body>
+
 <div class="background-overlay"></div>
 <div class="layout">
 
   <!-- ── SIDEBAR ─────────────────────────────────────────── -->
   <aside class="sidebar">
-
     <div class="logo-section">
       <h2>HIGHUPWEB</h2>
       <span>Academy AI</span>
@@ -50,12 +49,10 @@
       </label>
       <p>Light Mode</p>
     </div>
-
   </aside>
 
-  <!-- ── MAIN AREA ───────────────────────────────────────── -->
+  <!-- ── MAIN ───────────────────────────────────────────── -->
   <div class="main">
-
     <header class="topbar">
       <div class="topbar-left">
         <h1>Math AI Assistant</h1>
@@ -69,8 +66,16 @@
     <div class="app">
       <div id="chatContainer"></div>
 
+      <!-- Quick reply buttons shown after AI asks a question -->
+      <div id="quickReplies" class="quick-replies hidden">
+        <button onclick="quickReply('Yes, I understand! ✅')"  class="qr-btn qr-yes">✅ I understand!</button>
+        <button onclick="quickReply('No, I need more help 🔄')" class="qr-btn qr-no">🔄 Explain more</button>
+        <button onclick="quickReply('Can you give me another example?')" class="qr-btn qr-example">📝 More examples</button>
+        <button onclick="quickReply('Why do we do this step?')" class="qr-btn qr-why">💡 Why this step?</button>
+      </div>
+
       <div class="inputArea">
-        <button class="mic-btn" id="micBtn" title="Voice input (coming in Path 8)">🎤</button>
+        <button class="mic-btn" id="micBtn" title="Voice input — Path 8">🎤</button>
         <input
           id="messageInput"
           placeholder="Ask any math question..."
@@ -80,53 +85,39 @@
       </div>
 
       <div class="input-hint">
-        Try: "solve x² + 5x + 6 = 0" &bull; "plot sin(x)" &bull; "draw a hexagon"
+        Try: "solve x² + 5x + 6 = 0" &bull; "plot sin(x)" &bull; "explain integration"
       </div>
     </div>
-
   </div>
 </div>
 
-<!-- ── SCRIPTS — ORDER MATTERS ──────────────────────────── -->
-
-<!-- 1. Chart.js for graphs -->
+<!-- ── SCRIPTS — ORDER IS IMPORTANT ─────────────────────── -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<!-- 2. Marked.js for Markdown -->
 <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
-
-<!-- 3. DOMPurify for safe HTML -->
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
 
-<!-- 4. KaTeX core JS -->
 <script
   src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"
-  crossorigin="anonymous"
-  defer
+  crossorigin="anonymous" defer
 ></script>
-
-<!-- 5. KaTeX auto-render plugin -->
 <script
   src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
-  crossorigin="anonymous"
-  defer
+  crossorigin="anonymous" defer
   onload="onKatexLoaded()"
 ></script>
 
-<!-- 6. Our files — renderer then math-renderer then app -->
+<!-- Our files — order matters -->
+<script src="conversation.js"></script>
 <script src="renderer.js"></script>
 <script src="math-renderer.js"></script>
 <script src="app.js"></script>
 
 <script>
-// ── CALLED WHEN KATEX FULLY LOADS ────────────────────────────
 function onKatexLoaded() {
-    console.log("KaTeX loaded successfully");
-    // Re-render any math that appeared before KaTeX was ready
+    console.log("KaTeX loaded");
     renderAllMathInPage();
 }
 
-// ── EVENT LISTENERS ──────────────────────────────────────────
 document.getElementById("themeToggle").addEventListener("change", () => {
     document.body.classList.toggle("light-mode");
 });
@@ -137,11 +128,37 @@ document.getElementById("messageInput").addEventListener("keypress", (e) => {
     if (e.key === "Enter" && !e.shiftKey) sendMessage();
 });
 
-// Mic button — Path 8 will activate this
 document.getElementById("micBtn").addEventListener("click", () => {
     addMathMarkdownMessage("🎤 **Voice input** will be enabled in Path 8!");
 });
-</script>
 
+// Quick reply handler
+function quickReply(text) {
+    document.getElementById("messageInput").value = text;
+    hideQuickReplies();
+    sendMessage();
+}
+
+function showQuickReplies() {
+    const el = document.getElementById("quickReplies");
+    if (el) el.classList.remove("hidden");
+}
+
+function hideQuickReplies() {
+    const el = document.getElementById("quickReplies");
+    if (el) el.classList.add("hidden");
+}
+
+// Show quick replies after every AI response
+const _origAddMathMarkdown = addMathMarkdownMessage;
+window.addMathMarkdownMessage = function(text, role = "assistant") {
+    const result = _origAddMathMarkdown(text, role);
+    if (role === "assistant") {
+        // Show quick reply buttons after AI responds
+        setTimeout(showQuickReplies, 500);
+    }
+    return result;
+};
+</script>
 </body>
-</html
+</html>
