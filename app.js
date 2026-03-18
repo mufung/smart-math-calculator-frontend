@@ -1,6 +1,6 @@
-// ============================================================
+ // ============================================================
 // app.js — Main application logic
-// Path 5: Full persistence — images from S3, graphs re-rendered
+// Path 6: Voice response added after every AI answer
 // ============================================================
 
 const CHAT_API     = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
@@ -10,15 +10,20 @@ const SESSIONS_API = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/pro
 const HISTORY_API  = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/history";
 const VERIFY_API   = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/verify";
 
-// ── SESSION ───────────────────────────────────────────────────
 let sessionId = localStorage.getItem("sessionId") || generateSessionId();
 localStorage.setItem("sessionId", sessionId);
 
 // ── ON PAGE LOAD ──────────────────────────────────────────────
 window.addEventListener("load", async () => {
     initConversation(sessionId);
+    initVoice(); // from voice.js
     await loadSessions();
     showWelcomeMessage();
+
+    // Speak welcome after short delay
+    setTimeout(() => {
+        speakText("Welcome to Math AI Assistant! I am your personal math tutor. Ask me any math question and I will explain it step by step.");
+    }, 1000);
 });
 
 function generateSessionId() {
@@ -31,6 +36,7 @@ function startNewChat() {
     localStorage.setItem("sessionId", sessionId);
     clearHistory();
     initConversation(sessionId);
+    stopSpeaking(); // from voice.js
 
     const container = document.getElementById("chatContainer");
     if (container) container.innerHTML = "";
@@ -97,13 +103,14 @@ async function loadSessions() {
     }
 }
 
-// ── LOAD HISTORY — WITH FULL PERSISTENCE ─────────────────────
+// ── LOAD HISTORY ──────────────────────────────────────────────
 async function loadHistory(sid, clickedEl) {
     try {
         sessionId = sid;
         localStorage.setItem("sessionId", sid);
         clearHistory();
         initConversation(sid);
+        stopSpeaking();
 
         document.querySelectorAll(".chat-item").forEach(el => {
             el.classList.remove("active-chat");
@@ -132,24 +139,19 @@ async function loadHistory(sid, clickedEl) {
             if (!msg.text && !msg.s3_url && !msg.graph_data) continue;
 
             if (msg.role === "user") {
-                // ── User message ──────────────────────────────────
                 addUserMessage(msg.text);
                 addToHistory("user", msg.text);
 
             } else if (msg.type === "image") {
-                // ── IMAGE — restore from S3 URL ───────────────────
                 if (msg.s3_url) {
-                    // Restore actual image from S3
-                    addImageToChat(null, msg.s3_url);
+                    addImageToChat(msg.s3_url, msg.s3_url);
                 } else {
-                    addMathMarkdownMessage("🎨 *Image (loading...)*");
+                    addMathMarkdownMessage("🎨 *Image generated here*");
                 }
                 addToHistory("assistant", msg.text || "[Image]");
 
             } else if (msg.type === "graph") {
-                // ── GRAPH — re-render from saved data ─────────────
                 if (msg.graph_data && msg.graph_data.x && msg.graph_data.y) {
-                    // Re-render the full interactive graph
                     addGraph(msg.graph_data);
                 } else {
                     addMathMarkdownMessage("📈 " + msg.text);
@@ -157,7 +159,6 @@ async function loadHistory(sid, clickedEl) {
                 addToHistory("assistant", msg.text || "[Graph]");
 
             } else {
-                // ── Text/math message ─────────────────────────────
                 addMathMarkdownMessage(msg.text);
                 addToHistory("assistant", msg.text);
             }
@@ -179,6 +180,9 @@ async function sendMessage() {
 
     const message = input.value.trim();
     if (!message) return;
+
+    // Stop current speech when student sends a new message
+    stopSpeaking();
 
     addUserMessage(message);
     input.value = "";
@@ -215,7 +219,7 @@ async function sendMessage() {
     }
 }
 
-// ── HANDLE CHAT ───────────────────────────────────────────────
+// ── HANDLE CHAT — WITH VOICE ──────────────────────────────────
 async function handleChat(message) {
     const contextAdd = getContextualInstruction();
     const history    = getFormattedHistory();
@@ -243,7 +247,14 @@ async function handleChat(message) {
     const msgWrapper = addMathMarkdownMessage(reply);
     setTimeout(showQuickReplies, 400);
 
-    // Verify answer in background
+    // ── Speak the reply ───────────────────────────────────────
+    const msgId = "msg-" + Date.now();
+    if (msgWrapper) msgWrapper.dataset.msgId = msgId;
+    setTimeout(() => {
+        speakText(reply, msgId);
+    }, 300);
+
+    // Verify in background
     verifyAndShowBadge(message, reply, msgWrapper);
 }
 
@@ -253,7 +264,6 @@ async function verifyAndShowBadge(question, aiAnswer, messageWrapper) {
         if (!messageWrapper) return;
 
         const spinner     = document.createElement("div");
-        spinner.id        = "verify-spinner-" + Date.now();
         spinner.className = "verify-spinner";
         spinner.innerHTML = `<span class="verify-dot"></span> Verifying answer...`;
         messageWrapper.appendChild(spinner);
@@ -333,6 +343,12 @@ async function handleGraph(message) {
         addToHistory("user",      message);
         addToHistory("assistant", `Graph plotted: ${data.label || message}`);
         addGraph(data);
+
+        // Speak graph description
+        setTimeout(() => {
+            speakText(`I have plotted the graph of ${data.label || message}. You can see the curve on your screen.`);
+        }, 500);
+
     } else {
         addMathMarkdownMessage(`Could not generate graph.
 
@@ -388,10 +404,6 @@ async function handleImage(message) {
         let data      = JSON.parse(rawText);
         if (typeof data.body === "string") data = JSON.parse(data.body);
 
-        console.log("Image response keys:", Object.keys(data));
-
-        // ── Always prefer base64 for immediate display ────────
-        // S3 URL saved separately for persistence
         let displayUrl = null;
         let s3Url      = data.s3_url || null;
 
@@ -403,7 +415,6 @@ async function handleImage(message) {
             displayUrl = data.images[0].data_url;
             s3Url      = data.images[0].s3_url || s3Url;
         } else if (s3Url) {
-            // Only S3 URL available — use it directly
             displayUrl = s3Url;
         }
 
@@ -411,12 +422,18 @@ async function handleImage(message) {
             addImageToChat(displayUrl, s3Url);
             addToHistory("user",      message);
             addToHistory("assistant", "[Image generated]");
+
+            // Speak image confirmation
+            setTimeout(() => {
+                speakText(`I have drawn the ${body.shape || "image"} for you. You can see it on your screen.`);
+            }, 500);
+
         } else {
             addMathMarkdownMessage("Could not generate image: " + (data.error || "Unknown error"));
         }
 
     } catch (e) {
-        console.error("Image parse error:", e);
+        console.error("Image error:", e);
         addMathMarkdownMessage("Could not display image. Please try again.");
     }
 }
@@ -537,18 +554,4 @@ function showQuickReplies() {
 
 function hideQuickReplies() {
     const el = document.getElementById("quickReplies");
-    if (el) el.classList.add("hidden");
-}
-
-function quickReply(text) {
-    document.getElementById("messageInput").value = text;
-    hideQuickReplies();
-    sendMessage();
-}
-
-// ── ESCAPE HTML ───────────────────────────────────────────────
-function escapeHtml(text) {
-    const div = document.createElement("div");
-    div.appendChild(document.createTextNode(text || ""));
-    return div.innerHTML;
-}
+    if (el) el.classLis
