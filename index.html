@@ -43,7 +43,7 @@
         <input type="checkbox" id="themeToggle">
         <span class="slider"></span>
       </label>
-      <p>Light Mode</p>
+      <p id="themeLabel">Light Mode</p>
     </div>
   </aside>
 
@@ -61,9 +61,8 @@
     </header>
 
     <!-- ── VOICE BAR ──────────────────────────────────── -->
-    <div class="voice-bar">
+    <div class="voice-bar" id="voiceBar">
 
-      <!-- Left: toggle + indicator -->
       <div class="vbar-section vbar-left">
         <button id="voiceToggleBtn" class="voice-toggle-btn" onclick="toggleVoice()">
           🔊 Voice On
@@ -71,22 +70,18 @@
         <div id="voiceIndicator" class="voice-indicator">🔊 Ready</div>
       </div>
 
-      <!-- Center: play/pause/stop -->
       <div class="vbar-section vbar-center">
         <button id="voicePlayBtn"  class="vbtn vbtn-play"  onclick="replayLastMessage()">▶ Replay</button>
         <button id="voicePauseBtn" class="vbtn vbtn-pause" onclick="pauseSpeaking()" disabled>⏸ Pause</button>
         <button id="voiceStopBtn"  class="vbtn vbtn-stop"  onclick="stopSpeaking()"  disabled>⏹ Stop</button>
       </div>
 
-      <!-- Right: volume + speed + voice -->
       <div class="vbar-section vbar-right">
-
         <div class="vbar-control">
           <span class="vbar-label">🔈 <span id="volumeLabel">90%</span></span>
           <input
             type="range" min="0" max="1" step="0.05" value="0.9"
-            class="vbar-slider"
-            id="volumeSlider"
+            class="vbar-slider" id="volumeSlider"
             oninput="setVolume(this.value)"
           />
         </div>
@@ -107,20 +102,17 @@
             <option value="-1">Auto</option>
           </select>
         </div>
-
       </div>
     </div>
-    <!-- ── END VOICE BAR ──────────────────────────────── -->
 
     <div class="app">
       <div id="chatContainer"></div>
 
-      <!-- Quick replies -->
       <div id="quickReplies" class="quick-replies hidden">
-        <button onclick="quickReply('Yes, I understand!')"              class="qr-btn qr-yes">✅ I understand!</button>
-        <button onclick="quickReply('Please explain more')"             class="qr-btn qr-no">🔄 Explain more</button>
-        <button onclick="quickReply('Give me another example')"         class="qr-btn qr-example">📝 More examples</button>
-        <button onclick="quickReply('Why do we do this step?')"         class="qr-btn qr-why">💡 Why this step?</button>
+        <button onclick="quickReply('Yes, I understand!')"          class="qr-btn qr-yes">✅ I understand!</button>
+        <button onclick="quickReply('Please explain more')"          class="qr-btn qr-no">🔄 Explain more</button>
+        <button onclick="quickReply('Give me another example')"      class="qr-btn qr-example">📝 More examples</button>
+        <button onclick="quickReply('Why do we do this step?')"      class="qr-btn qr-why">💡 Why this step?</button>
       </div>
 
       <div class="inputArea">
@@ -154,20 +146,49 @@
 <script src="app.js"></script>
 
 <script>
+// ── KATEX ────────────────────────────────────────────────────
 function onKatexLoaded() {
     renderAllMathInPage();
 }
 
-document.getElementById("themeToggle").addEventListener("change", () => {
-    document.body.classList.toggle("light-mode");
+// ── THEME TOGGLE — FIXED ─────────────────────────────────────
+var themeToggle = document.getElementById("themeToggle");
+var themeLabel  = document.getElementById("themeLabel");
+
+// Restore saved theme on load
+var savedTheme = localStorage.getItem("mathAiTheme");
+if (savedTheme === "light") {
+    document.body.classList.add("light-mode");
+    themeToggle.checked  = true;
+    themeLabel.textContent = "Dark Mode";
+}
+
+themeToggle.addEventListener("change", function() {
+    if (themeToggle.checked) {
+        document.body.classList.add("light-mode");
+        themeLabel.textContent = "Dark Mode";
+        localStorage.setItem("mathAiTheme", "light");
+    } else {
+        document.body.classList.remove("light-mode");
+        themeLabel.textContent = "Light Mode";
+        localStorage.setItem("mathAiTheme", "dark");
+    }
 });
 
-document.getElementById("sendBtn").addEventListener("click", sendMessage);
+// ── SEND BUTTON ───────────────────────────────────────────────
+document.getElementById("sendBtn").addEventListener("click", function() {
+    sendMessage();
+});
 
+// ── ENTER KEY ─────────────────────────────────────────────────
 document.getElementById("messageInput").addEventListener("keypress", function(e) {
-    if (e.key === "Enter" && !e.shiftKey) sendMessage();
+    if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
 });
 
+// ── MIC BUTTON ────────────────────────────────────────────────
 document.getElementById("micBtn").addEventListener("click", function() {
     addMathMarkdownMessage("🎤 **Voice input** is coming in Path 7!");
 });
