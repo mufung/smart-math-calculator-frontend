@@ -594,3 +594,124 @@ body.light-mode .input-hint { color: #94a3b8 !important; }
     .markdown-message h1 { font-size: 18px; }
     .markdown-message h2 { font-size: 15px; }
 }
+
+
+
+
+
+
+/* ══ MIC BUTTON ACTIVE STATE — PATH 7 ══════════════════════ */
+.mic-btn {
+    position: relative;
+    transition: all 0.2s;
+}
+
+.mic-btn.mic-listening {
+    background: rgba(239,68,68,0.25) !important;
+    border-color: #ef4444 !important;
+    color: white !important;
+    box-shadow: 0 0 0 4px rgba(239,68,68,0.2);
+    animation: micPulse 1.2s infinite;
+}
+
+@keyframes micPulse {
+    0%   { box-shadow: 0 0 0 0   rgba(239,68,68,0.4); }
+    70%  { box-shadow: 0 0 0 10px rgba(239,68,68,0); }
+    100% { box-shadow: 0 0 0 0   rgba(239,68,68,0); }
+}
+
+/* ══ MIC STATUS BAR — PATH 7 ════════════════════════════════ */
+.mic-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 20px;
+    background: rgba(239,68,68,0.1);
+    border-bottom: 1px solid rgba(239,68,68,0.2);
+    flex-shrink: 0;
+    animation: fadeIn 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.mic-status-bar.hidden { display: none !important; }
+
+/* Animated scan line */
+.mic-status-bar::after {
+    content: "";
+    position: absolute;
+    left: -100%;
+    top: 0;
+    height: 100%;
+    width: 60%;
+    background: linear-gradient(90deg, transparent, rgba(239,68,68,0.08), transparent);
+    animation: micScan 2s infinite;
+}
+
+@keyframes micScan {
+    0%   { left: -60%; }
+    100% { left: 110%; }
+}
+
+.mic-pulse-ring {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 2px solid rgba(239,68,68,0.6);
+    animation: micRing 1.2s infinite;
+    flex-shrink: 0;
+}
+
+@keyframes micRing {
+    0%   { transform: scale(0.8); opacity: 1; }
+    100% { transform: scale(1.6); opacity: 0; }
+}
+
+.mic-pulse-dot {
+    width: 10px; height: 10px;
+    background: #ef4444;
+    border-radius: 50%;
+    flex-shrink: 0;
+    position: absolute;
+    left: 23px;
+    animation: micDot 1.2s infinite;
+}
+
+@keyframes micDot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.6; transform: scale(0.85); }
+}
+
+.mic-status-text {
+    font-size: 13px;
+    color: rgba(255,255,255,0.85);
+    font-weight: 500;
+    flex: 1;
+}
+
+.mic-stop-btn {
+    padding: 4px 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(239,68,68,0.4);
+    background: rgba(239,68,68,0.1);
+    color: #f87171;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.mic-stop-btn:hover {
+    background: rgba(239,68,68,0.2);
+    transform: scale(1.04);
+}
+
+/* Light mode mic status */
+body.light-mode .mic-status-bar {
+    background: rgba(239,68,68,0.06) !important;
+    border-bottom-color: rgba(239,68,68,0.15) !important;
+}
+body.light-mode .mic-status-text { color: #374151 !important; }
+body.light-mode .mic-stop-btn    { background: #fff5f5 !important; border-color: #fecaca !important; color: #dc2626 !important; }
+
+
