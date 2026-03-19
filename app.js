@@ -1,6 +1,6 @@
- // ============================================================
+// ============================================================
 // app.js — Math AI Assistant — Path 7
-// Path 7: Voice input connected — mic button fully working
+// Voice input: record → preview → send or cancel
 // ============================================================
 
 var CHAT_API     = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
@@ -30,7 +30,7 @@ function startNewChat() {
     clearHistory();
     initConversation(sessionId);
     stopSpeaking();
-    stopListening();
+    cancelRecording();
 
     var container = document.getElementById("chatContainer");
     if (container) container.innerHTML = "";
@@ -44,7 +44,7 @@ function startNewChat() {
 
     if (VoiceState.userInteracted) {
         setTimeout(function() {
-            speakText("New chat started. I am ready. Ask me any math question by typing or using the microphone.");
+            speakText("New chat started. Ask me any math question!");
         }, 400);
     }
 }
@@ -67,7 +67,7 @@ async function loadSessions() {
 
         sessions.forEach(function(session) {
             var li       = document.createElement("li");
-            li.className   = "chat-item";
+            li.className = "chat-item";
             li.dataset.sid = session.sessionId;
             if (session.sessionId === sessionId) li.classList.add("active-chat");
 
@@ -88,7 +88,7 @@ async function loadSessions() {
 
         console.log("Loaded " + sessions.length + " sessions");
     } catch (err) {
-        console.error("Failed to load sessions:", err);
+        console.error("Sessions error:", err);
         list.innerHTML = "<li class='no-chats'>Could not load chats</li>";
     }
 }
@@ -100,7 +100,7 @@ async function loadHistory(sid, clickedEl) {
         clearHistory();
         initConversation(sid);
         stopSpeaking();
-        stopListening();
+        cancelRecording();
 
         document.querySelectorAll(".chat-item").forEach(function(el) {
             el.classList.remove("active-chat");
@@ -153,7 +153,7 @@ async function loadHistory(sid, clickedEl) {
         if (cont) cont.scrollTop = cont.scrollHeight;
 
     } catch (err) {
-        console.error("Load history error:", err);
+        console.error("History error:", err);
         addMathMarkdownMessage("Could not load chat history. Please try again.");
     }
 }
@@ -170,13 +170,11 @@ async function sendMessage() {
         dismissInteractionPrompt();
     }
 
-    // Stop listening if active
-    if (RecognitionState.active) stopListening();
-
     stopSpeaking();
+    hideRecordingPanel();
+
     addUserMessage(message);
-    input.value       = "";
-    input.placeholder = "Ask any math question...";
+    input.value = "";
     hideQuickReplies();
     showTyping();
     detectTopic(message);
@@ -230,13 +228,12 @@ async function handleChat(message) {
     removeTyping();
     removeClarificationIndicator();
 
+    // addMathMarkdownMessage now adds a 🔊 button per response automatically
     var msgWrapper = addMathMarkdownMessage(reply);
     setTimeout(showQuickReplies, 400);
 
-    // Speak reply
-    setTimeout(function() {
-        speakText(reply);
-    }, 200);
+    // Auto-speak the reply via global voice
+    setTimeout(function() { speakText(reply); }, 200);
 
     verifyAndShowBadge(message, reply, msgWrapper);
 }
@@ -244,7 +241,7 @@ async function handleChat(message) {
 async function verifyAndShowBadge(question, aiAnswer, messageWrapper) {
     try {
         if (!messageWrapper) return;
-        var spinner     = document.createElement("div");
+        var spinner      = document.createElement("div");
         spinner.className = "verify-spinner";
         spinner.innerHTML = "<span class='verify-dot'></span> Verifying answer...";
         messageWrapper.appendChild(spinner);
@@ -272,7 +269,7 @@ async function verifyAndShowBadge(question, aiAnswer, messageWrapper) {
 
 function addVerificationBadge(messageWrapper, result) {
     if (!messageWrapper || !result) return;
-    var badge     = document.createElement("div");
+    var badge      = document.createElement("div");
     badge.className = "verification-badge " + (result.badge_class || "badge-info");
     badge.innerHTML =
         "<span class='badge-icon'>" + (result.badge || "ℹ️") + "</span>" +
@@ -308,7 +305,7 @@ async function handleGraph(message) {
         addToHistory("assistant", "Graph plotted: " + (data.label || message));
         addGraph(data);
         setTimeout(function() {
-            speakText("I have plotted the graph of " + (data.label || message) + ". You can see the curve on your screen. Do you have any questions about it?");
+            speakText("I have plotted the graph of " + (data.label || message) + ". You can see the curve on your screen. Do you have any questions about what you see?");
         }, 600);
     } else {
         addMathMarkdownMessage("Could not generate graph.\n\n**Try these:**\n- plot x squared\n- graph sin(x)\n- plot x cubed minus 2x");
@@ -336,12 +333,11 @@ async function handleImage(message) {
         var sizeMatch  = msg.match(/size\s*(\d+)|(\d+)\s*px/);
         var size       = sizeMatch ? parseInt(sizeMatch[1] || sizeMatch[2]) : 150;
 
-        var colorList = ["red","blue","green","yellow","purple","orange","pink","cyan","royalblue","gold","white"];
-        var color     = "royalblue";
+        var colorList  = ["red","blue","green","yellow","purple","orange","pink","cyan","royalblue","gold","white"];
+        var color      = "royalblue";
         for (var ci = 0; ci < colorList.length; ci++) {
             if (msg.includes(colorList[ci])) { color = colorList[ci]; break; }
         }
-
         body = { action: "draw_shape", shape: shape, sides: sides, size: size, color: color, outline: "white", label: message, sessionId: sessionId };
     }
 
@@ -359,17 +355,19 @@ async function handleImage(message) {
         var displayUrl = null;
         var s3Url      = data.s3_url || null;
 
-        if (data.data_url)                        displayUrl = data.data_url;
-        else if (data.image)                      displayUrl = "data:image/png;base64," + data.image;
-        else if (data.images && data.images[0]) { displayUrl = data.images[0].data_url; s3Url = data.images[0].s3_url || s3Url; }
-        else if (s3Url)                           displayUrl = s3Url;
+        if      (data.data_url)                    displayUrl = data.data_url;
+        else if (data.image)                       displayUrl = "data:image/png;base64," + data.image;
+        else if (data.images && data.images[0])   {
+            displayUrl = data.images[0].data_url;
+            s3Url      = data.images[0].s3_url || s3Url;
+        } else if (s3Url)                          displayUrl = s3Url;
 
         if (displayUrl) {
             addImageToChat(displayUrl, s3Url);
             addToHistory("user",      message);
             addToHistory("assistant", "[Image generated]");
             setTimeout(function() {
-                speakText("There you go! I have drawn the " + (body.shape || "image") + " for you. You can see it on your screen.");
+                speakText("There you go! I have drawn the " + (body.shape || "image") + " for you on your screen.");
             }, 500);
         } else {
             addMathMarkdownMessage("Could not generate image: " + (data.error || "Unknown error"));
@@ -419,14 +417,20 @@ function addGraph(data) {
 
     new Chart(canvas, {
         type: "scatter",
-        data: { datasets: [{ data: points, showLine: true, borderColor: "#2563eb", borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, tension: 0, fill: false }] },
+        data: { datasets: [{
+            data: points, showLine: true,
+            borderColor: "#2563eb", borderWidth: 2.5,
+            pointRadius: 0, pointHoverRadius: 5,
+            tension: 0, fill: false
+        }]},
         options: {
             responsive: true, maintainAspectRatio: false,
             animation: { duration: 700 },
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: "#1e3a5f", titleColor: "#fff", bodyColor: "#93c5fd", padding: 10, cornerRadius: 8,
+                    backgroundColor: "#1e3a5f", titleColor: "#fff", bodyColor: "#93c5fd",
+                    padding: 10, cornerRadius: 8,
                     callbacks: {
                         title: function() { return data.label || "f(x)"; },
                         label: function(ctx) { return "x = " + ctx.parsed.x.toFixed(2) + ",  y = " + ctx.parsed.y.toFixed(3); }
@@ -457,11 +461,11 @@ function showClarificationIndicator() {
     var app = document.querySelector(".app");
     if (!app) return;
     removeClarificationIndicator();
-    var banner     = document.createElement("div");
-    banner.id      = "clarificationBanner";
+    var banner      = document.createElement("div");
+    banner.id       = "clarificationBanner";
     banner.className = "clarification-banner";
     banner.innerHTML = "<span class='clarification-icon'>🔄</span><span>Re-explaining with a simpler approach...</span>";
-    var inputArea  = document.querySelector(".inputArea");
+    var inputArea    = document.querySelector(".inputArea");
     if (inputArea) app.insertBefore(banner, inputArea);
 }
 
