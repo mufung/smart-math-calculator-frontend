@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -60,9 +60,8 @@
       </div>
     </header>
 
-    <!-- ── VOICE BAR ──────────────────────────────────── -->
+    <!-- ── VOICE OUTPUT BAR ─────────────────────────────── -->
     <div class="voice-bar" id="voiceBar">
-
       <div class="vbar-section vbar-left">
         <button id="voiceToggleBtn" class="voice-toggle-btn" onclick="toggleVoice()">
           🔊 Voice On
@@ -79,23 +78,18 @@
       <div class="vbar-section vbar-right">
         <div class="vbar-control">
           <span class="vbar-label">🔈 <span id="volumeLabel">90%</span></span>
-          <input
-            type="range" min="0" max="1" step="0.05" value="0.9"
-            class="vbar-slider" id="volumeSlider"
-            oninput="setVolume(this.value)"
-          />
+          <input type="range" min="0" max="1" step="0.05" value="0.9"
+            class="vbar-slider" id="volumeSlider" oninput="setVolume(this.value)"/>
         </div>
-
         <div class="vbar-control">
           <span class="vbar-label">⚡ <span id="speedLabel">Normal</span></span>
-          <select class="vbar-select" id="speedSelect" onchange="setSpeed(this.value)">
+          <select class="vbar-select" onchange="setSpeed(this.value)">
             <option value="0.6">Slow</option>
             <option value="0.85" selected>Normal</option>
             <option value="1.2">Fast</option>
             <option value="1.6">Very Fast</option>
           </select>
         </div>
-
         <div class="vbar-control">
           <span class="vbar-label">🎙</span>
           <select class="vbar-select" id="voiceSelector" onchange="setVoice(this.value)">
@@ -105,24 +99,33 @@
       </div>
     </div>
 
+    <!-- ── MIC STATUS BAR ────────────────────────────────── -->
+    <div id="micStatusBar" class="mic-status-bar hidden">
+      <div class="mic-pulse-ring"></div>
+      <span class="mic-pulse-dot"></span>
+      <span id="micStatus" class="mic-status-text">🎤 Listening...</span>
+      <button class="mic-stop-btn" onclick="stopListening()">✕ Cancel</button>
+    </div>
+
     <div class="app">
       <div id="chatContainer"></div>
 
+      <!-- Quick replies -->
       <div id="quickReplies" class="quick-replies hidden">
-        <button onclick="quickReply('Yes, I understand!')"          class="qr-btn qr-yes">✅ I understand!</button>
-        <button onclick="quickReply('Please explain more')"          class="qr-btn qr-no">🔄 Explain more</button>
-        <button onclick="quickReply('Give me another example')"      class="qr-btn qr-example">📝 More examples</button>
-        <button onclick="quickReply('Why do we do this step?')"      class="qr-btn qr-why">💡 Why this step?</button>
+        <button onclick="quickReply('Yes, I understand!')"         class="qr-btn qr-yes">✅ I understand!</button>
+        <button onclick="quickReply('Please explain more')"        class="qr-btn qr-no">🔄 Explain more</button>
+        <button onclick="quickReply('Give me another example')"    class="qr-btn qr-example">📝 More examples</button>
+        <button onclick="quickReply('Why do we do this step?')"    class="qr-btn qr-why">💡 Why this step?</button>
       </div>
 
       <div class="inputArea">
-        <button class="mic-btn" id="micBtn" title="Voice input — Path 7">🎤</button>
-        <input id="messageInput" placeholder="Ask any math question..." autocomplete="off"/>
+        <button class="mic-btn" id="micBtn" onclick="toggleMic()" title="Click to speak your question">🎤</button>
+        <input id="messageInput" placeholder="Ask any math question... or tap 🎤 to speak" autocomplete="off"/>
         <button id="sendBtn">Send ➤</button>
       </div>
 
       <div class="input-hint">
-        Try: "solve x² + 5x + 6 = 0" &bull; "plot sin(x)" &bull; "explain integration"
+        Try: "solve x² + 5x + 6 = 0" &bull; "plot sin(x)" &bull; "explain integration" &bull; or 🎤 speak your question
       </div>
     </div>
   </div>
@@ -132,12 +135,8 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
-<script
-  src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"
-  crossorigin="anonymous" defer></script>
-<script
-  src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
-  crossorigin="anonymous" defer onload="onKatexLoaded()"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js" crossorigin="anonymous" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js" crossorigin="anonymous" defer onload="onKatexLoaded()"></script>
 
 <script src="conversation.js"></script>
 <script src="voice.js"></script>
@@ -146,18 +145,16 @@
 <script src="app.js"></script>
 
 <script>
-// ── KATEX ──────────────────────────────────────────────────
 function onKatexLoaded() {
     renderAllMathInPage();
 }
 
-// ── THEME TOGGLE ───────────────────────────────────────────
+// ── THEME TOGGLE ─────────────────────────────────────────────
 (function() {
     var toggle = document.getElementById("themeToggle");
     var label  = document.getElementById("themeLabel");
+    var saved  = localStorage.getItem("mathAiTheme");
 
-    // Restore saved preference
-    var saved = localStorage.getItem("mathAiTheme");
     if (saved === "light") {
         document.body.classList.add("light-mode");
         toggle.checked    = true;
@@ -168,7 +165,6 @@ function onKatexLoaded() {
         label.textContent = "Light Mode";
     }
 
-    // On change
     toggle.addEventListener("change", function() {
         if (this.checked) {
             document.body.classList.add("light-mode");
@@ -182,22 +178,17 @@ function onKatexLoaded() {
     });
 })();
 
-// ── SEND BUTTON ────────────────────────────────────────────
+// ── SEND BUTTON ───────────────────────────────────────────────
 document.getElementById("sendBtn").addEventListener("click", function() {
     sendMessage();
 });
 
-// ── ENTER KEY ──────────────────────────────────────────────
+// ── ENTER KEY ─────────────────────────────────────────────────
 document.getElementById("messageInput").addEventListener("keypress", function(e) {
     if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         sendMessage();
     }
-});
-
-// ── MIC BUTTON ─────────────────────────────────────────────
-document.getElementById("micBtn").addEventListener("click", function() {
-    addMathMarkdownMessage("🎤 Voice input coming in Path 7!");
 });
 </script>
 
