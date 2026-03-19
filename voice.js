@@ -1,7 +1,6 @@
 // ============================================================
-// voice.js — Voice System — Path 7 Full
-// Path 6: Voice output (speak answers)
-// Path 7: Voice input (speech recognition — mic button)
+// voice.js — Voice System — Path 7
+// Text-to-speech + Voice Input with preview before send
 // ============================================================
 
 // ── VOICE OUTPUT STATE ────────────────────────────────────────
@@ -21,34 +20,29 @@ var VoiceState = {
 };
 
 // ── VOICE INPUT STATE ─────────────────────────────────────────
-var RecognitionState = {
-    active:      false,
-    recognition: null,
-    supported:   false,
-    finalText:   "",
-    interimText: ""
+var VoiceInput = {
+    recognition:  null,
+    recording:    false,
+    transcript:   "",
+    supported:    false
 };
 
-// ══════════════════════════════════════════════════════════════
-// VOICE OUTPUT — SPEECH SYNTHESIS
-// ══════════════════════════════════════════════════════════════
-
+// ── INIT ──────────────────────────────────────────────────────
 function initVoice() {
     if (!window.speechSynthesis) {
         console.warn("Speech synthesis not supported");
+        hideVoiceBar();
         return false;
     }
 
     loadVoices();
-    window.speechSynthesis.onvoiceschanged = function() {
-        loadVoices();
-    };
+    window.speechSynthesis.onvoiceschanged = loadVoices;
 
-    // Init speech recognition
-    initSpeechRecognition();
+    // Init voice input
+    initVoiceInput();
 
     // First interaction listener
-    var playOnFirstInteraction = function() {
+    var playOnce = function() {
         if (!VoiceState.userInteracted) {
             VoiceState.userInteracted = true;
             dismissInteractionPrompt();
@@ -59,13 +53,282 @@ function initVoice() {
         }
     };
 
-    ["click", "keydown", "touchstart"].forEach(function(evt) {
-        document.addEventListener(evt, playOnFirstInteraction, { once: true });
-    });
+    document.addEventListener("click",      playOnce, { once: true });
+    document.addEventListener("keydown",    playOnce, { once: true });
+    document.addEventListener("touchstart", playOnce, { once: true });
 
     setTimeout(showInteractionPrompt, 600);
-    console.log("Voice system initialized");
+    console.log("Voice system ready");
     return true;
+}
+
+// ── INIT VOICE INPUT ──────────────────────────────────────────
+function initVoiceInput() {
+    var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+        VoiceInput.supported = false;
+        console.warn("Speech recognition not supported");
+        var micBtn = document.getElementById("micBtn");
+        if (micBtn) {
+            micBtn.title   = "Voice input not supported in this browser";
+            micBtn.style.opacity = "0.4";
+        }
+        return;
+    }
+
+    VoiceInput.supported    = true;
+    VoiceInput.recognition  = new SpeechRecognition();
+
+    var rec = VoiceInput.recognition;
+    rec.continuous          = false;
+    rec.interimResults      = true;
+    rec.lang                = "en-US";
+    rec.maxAlternatives     = 1;
+
+    rec.onstart = function() {
+        VoiceInput.recording  = true;
+        VoiceInput.transcript = "";
+        updateMicUI(true);
+        showRecordingPanel("", true);
+        console.log("Recording started");
+    };
+
+    rec.onresult = function(event) {
+        var interim  = "";
+        var final    = "";
+
+        for (var i = event.resultIndex; i < event.results.length; i++) {
+            var text = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                final += text;
+            } else {
+                interim += text;
+            }
+        }
+
+        VoiceInput.transcript = final || interim;
+        showRecordingPanel(VoiceInput.transcript, !final);
+    };
+
+    rec.onend = function() {
+        VoiceInput.recording = false;
+        updateMicUI(false);
+
+        if (VoiceInput.transcript && VoiceInput.transcript.trim().length > 0) {
+            // Show preview with Send / Cancel buttons — do NOT auto-send
+            showRecordingPanel(VoiceInput.transcript, false);
+            showVoicePreview(VoiceInput.transcript);
+        } else {
+            hideRecordingPanel();
+        }
+        console.log("Recording ended. Transcript:", VoiceInput.transcript);
+    };
+
+    rec.onerror = function(event) {
+        VoiceInput.recording = false;
+        updateMicUI(false);
+
+        var msg = "";
+        if      (event.error === "no-speech")     msg = "No speech detected. Please try again.";
+        else if (event.error === "not-allowed")   msg = "Microphone access denied. Please allow microphone in browser settings.";
+        else if (event.error === "network")       msg = "Network error during voice recognition.";
+        else                                       msg = "Voice error: " + event.error;
+
+        showRecordingError(msg);
+        setTimeout(hideRecordingPanel, 3000);
+        console.error("Speech recognition error:", event.error);
+    };
+}
+
+// ── START / STOP RECORDING ────────────────────────────────────
+function toggleVoiceInput() {
+    if (!VoiceInput.supported) {
+        addMathMarkdownMessage("🎤 Voice input is not supported in this browser. Please use **Chrome** or **Edge** for best results.");
+        return;
+    }
+
+    if (!VoiceState.userInteracted) {
+        VoiceState.userInteracted = true;
+        dismissInteractionPrompt();
+    }
+
+    if (VoiceInput.recording) {
+        stopRecording();
+    } else {
+        startRecording();
+    }
+}
+
+function startRecording() {
+    if (!VoiceInput.recognition) return;
+
+    // Set language to match selected voice language
+    if (VoiceState.voiceIndex >= 0 && VoiceState.voices[VoiceState.voiceIndex]) {
+        VoiceInput.recognition.lang = VoiceState.voices[VoiceState.voiceIndex].lang;
+    } else {
+        VoiceInput.recognition.lang = "en-US";
+    }
+
+    // Stop any playing speech while recording
+    if (VoiceState.speaking) stopSpeaking();
+
+    try {
+        VoiceInput.recognition.start();
+    } catch (e) {
+        console.warn("Recognition start error:", e);
+    }
+}
+
+function stopRecording() {
+    if (VoiceInput.recognition && VoiceInput.recording) {
+        try {
+            VoiceInput.recognition.stop();
+        } catch (e) {
+            console.warn("Recognition stop error:", e);
+        }
+    }
+}
+
+function cancelRecording() {
+    if (VoiceInput.recognition && VoiceInput.recording) {
+        try {
+            VoiceInput.recognition.abort();
+        } catch (e) { }
+    }
+    VoiceInput.recording  = false;
+    VoiceInput.transcript = "";
+    updateMicUI(false);
+    hideRecordingPanel();
+}
+
+// ── VOICE PREVIEW — SEND OR CANCEL ───────────────────────────
+function showVoicePreview(transcript) {
+    // Put transcript into input box so user can edit or confirm
+    var input = document.getElementById("messageInput");
+    if (input) {
+        input.value = transcript;
+        input.focus();
+    }
+
+    // Show the preview panel with Send and Cancel
+    var panel = document.getElementById("voicePreviewPanel");
+    if (!panel) return;
+
+    panel.style.display = "flex";
+    panel.innerHTML =
+        "<span class='vp-transcript-icon'>🎤</span>" +
+        "<span class='vp-transcript-text' id='voiceTranscriptDisplay'>" +
+            escapeHtmlVoice(transcript) +
+        "</span>" +
+        "<div class='vp-action-btns'>" +
+            "<button class='vp-send-btn' onclick='sendVoiceMessage()'>Send ➤</button>" +
+            "<button class='vp-cancel-btn' onclick='cancelVoicePreview()'>✕ Cancel</button>" +
+        "</div>";
+}
+
+function sendVoiceMessage() {
+    hideRecordingPanel();
+    // sendMessage() is defined in app.js and reads from messageInput
+    sendMessage();
+}
+
+function cancelVoicePreview() {
+    var input = document.getElementById("messageInput");
+    if (input) input.value = "";
+    hideRecordingPanel();
+    VoiceInput.transcript = "";
+}
+
+// ── RECORDING PANEL UI ────────────────────────────────────────
+function showRecordingPanel(transcript, isInterim) {
+    var panel = document.getElementById("voicePreviewPanel");
+    if (!panel) return;
+
+    panel.style.display = "flex";
+
+    if (isInterim || !transcript) {
+        panel.innerHTML =
+            "<span class='vp-recording-dot'></span>" +
+            "<span class='vp-recording-label'>" +
+                (transcript ? escapeHtmlVoice(transcript) : "Listening...") +
+            "</span>" +
+            "<button class='vp-stop-rec-btn' onclick='stopRecording()'>■ Stop</button>" +
+            "<button class='vp-cancel-btn'   onclick='cancelRecording()'>✕</button>";
+    }
+}
+
+function hideRecordingPanel() {
+    var panel = document.getElementById("voicePreviewPanel");
+    if (panel) panel.style.display = "none";
+    var input = document.getElementById("messageInput");
+    if (input && !input.value) input.value = "";
+}
+
+function showRecordingError(msg) {
+    var panel = document.getElementById("voicePreviewPanel");
+    if (!panel) return;
+    panel.style.display = "flex";
+    panel.innerHTML =
+        "<span style='color:#f87171;font-size:13px'>⚠ " + msg + "</span>" +
+        "<button class='vp-cancel-btn' onclick='hideRecordingPanel()'>✕</button>";
+}
+
+function updateMicUI(isRecording) {
+    var micBtn = document.getElementById("micBtn");
+    if (!micBtn) return;
+
+    if (isRecording) {
+        micBtn.classList.add("active");
+        micBtn.title     = "Click to stop recording";
+        micBtn.innerHTML = "⏹";
+    } else {
+        micBtn.classList.remove("active");
+        micBtn.title     = "Click to speak your question";
+        micBtn.innerHTML = "🎤";
+    }
+}
+
+// ── WELCOME SPEECH ────────────────────────────────────────────
+function playWelcomeSpeech() {
+    var text =
+        "Welcome to Math AI Assistant. " +
+        "Your intelligent, voice-powered math tutor for HighupWeb Academy in Cameroon. " +
+        "I combine artificial intelligence with step-by-step teaching, " +
+        "real-time answer verification, and full voice interaction. " +
+        "I can solve equations, draw graphs, explain concepts from the basics, " +
+        "and speak every answer clearly. " +
+        "You can also speak your questions using the microphone button. " +
+        "Go ahead. Ask me anything.";
+    speakText(text);
+}
+
+// ── INTERACTION PROMPT ────────────────────────────────────────
+function showInteractionPrompt() {
+    if (document.getElementById("voicePrompt")) return;
+    var prompt      = document.createElement("div");
+    prompt.id       = "voicePrompt";
+    prompt.className = "voice-prompt";
+    prompt.innerHTML =
+        "<span class='vp-icon'>🔊</span>" +
+        "<span class='vp-text'>Tap anywhere to enable voice</span>" +
+        "<button class='vp-btn' onclick='dismissInteractionPrompt()'>Enable</button>";
+    document.body.appendChild(prompt);
+    setTimeout(function() {
+        prompt.style.opacity   = "1";
+        prompt.style.transform = "translateX(-50%) translateY(0)";
+    }, 100);
+}
+
+function dismissInteractionPrompt() {
+    var prompt = document.getElementById("voicePrompt");
+    if (prompt) {
+        prompt.style.opacity   = "0";
+        prompt.style.transform = "translateX(-50%) translateY(20px)";
+        setTimeout(function() {
+            if (prompt.parentNode) prompt.parentNode.removeChild(prompt);
+        }, 400);
+    }
 }
 
 // ── LOAD VOICES ───────────────────────────────────────────────
@@ -92,30 +355,29 @@ function loadVoices() {
                !v.lang.startsWith("es") && !v.lang.startsWith("ar");
     });
 
-    if (googleEn.length > 0) addVoiceGroup(selector, "⭐ Google English (Best)", googleEn, raw);
-    if (otherEn.length  > 0) addVoiceGroup(selector, "🇬🇧 English Voices",       otherEn,  raw);
-    if (french.length   > 0) addVoiceGroup(selector, "🇫🇷 French / Français",    french,   raw);
-    if (spanish.length  > 0) addVoiceGroup(selector, "🇪🇸 Spanish / Español",    spanish,  raw);
-    if (arabic.length   > 0) addVoiceGroup(selector, "🇸🇦 Arabic / عربي",        arabic,   raw);
-    if (others.length   > 0) addVoiceGroup(selector, "🌍 Other Languages",       others,   raw);
+    if (googleEn.length) addVoiceOptGroup(selector, "⭐ Google English (Best)", googleEn, raw);
+    if (otherEn.length)  addVoiceOptGroup(selector, "🇬🇧 English",              otherEn,  raw);
+    if (french.length)   addVoiceOptGroup(selector, "🇫🇷 Français",             french,   raw);
+    if (spanish.length)  addVoiceOptGroup(selector, "🇪🇸 Español",              spanish,  raw);
+    if (arabic.length)   addVoiceOptGroup(selector, "🇸🇦 العربية",              arabic,   raw);
+    if (others.length)   addVoiceOptGroup(selector, "🌍 Other Languages",       others,   raw);
 
-    if (savedVal && savedVal !== "-1") selector.value = savedVal;
-    console.log("Loaded " + raw.length + " voices");
+    if (savedVal) selector.value = savedVal;
+    console.log("Voices loaded:", raw.length);
 }
 
 function addVoiceOption(select, value, text) {
     var opt  = document.createElement("option");
-    opt.value = value;
-    opt.text  = text;
+    opt.value = value; opt.text = text;
     select.appendChild(opt);
 }
 
-function addVoiceGroup(select, label, voices, allVoices) {
-    var group = document.createElement("optgroup");
+function addVoiceOptGroup(select, label, voices, allVoices) {
+    var group   = document.createElement("optgroup");
     group.label = label;
     voices.forEach(function(voice) {
         var idx = allVoices.indexOf(voice);
-        var opt  = document.createElement("option");
+        var opt = document.createElement("option");
         opt.value = idx;
         opt.text  = voice.name;
         group.appendChild(opt);
@@ -172,32 +434,25 @@ function cleanTextForSpeech(text) {
     t = t.replace(/\\\\/g,        " ");
     t = t.replace(/\\/g,          "");
 
-    t = t.replace(/x\^2/gi, "x squared");
-    t = t.replace(/x\^3/gi, "x cubed");
-    t = t.replace(/²/g,     " squared");
-    t = t.replace(/³/g,     " cubed");
-    t = t.replace(/√/g,     "square root of");
-    t = t.replace(/π/g,     "pi");
-    t = t.replace(/∞/g,     "infinity");
-    t = t.replace(/∫/g,     "integral");
-    t = t.replace(/∑/g,     "sum");
-    t = t.replace(/±/g,     "plus or minus");
-    t = t.replace(/≤/g,     "less than or equal to");
-    t = t.replace(/≥/g,     "greater than or equal to");
-    t = t.replace(/≠/g,     "not equal to");
-    t = t.replace(/≈/g,     "approximately");
-    t = t.replace(/×/g,     "times");
-    t = t.replace(/÷/g,     "divided by");
-    t = t.replace(/→/g,     "gives");
-    t = t.replace(/∴/g,     "therefore");
-    t = t.replace(/∈/g,     "is in");
+    t = t.replace(/²/g, " squared");
+    t = t.replace(/³/g, " cubed");
+    t = t.replace(/√/g, "square root of");
+    t = t.replace(/π/g, "pi");
+    t = t.replace(/∞/g, "infinity");
+    t = t.replace(/∫/g, "integral");
+    t = t.replace(/∑/g, "sum");
+    t = t.replace(/±/g, "plus or minus");
+    t = t.replace(/≤/g, "less than or equal to");
+    t = t.replace(/≥/g, "greater than or equal to");
+    t = t.replace(/≠/g, "not equal to");
+    t = t.replace(/≈/g, "approximately");
+    t = t.replace(/×/g, "times");
+    t = t.replace(/÷/g, "divided by");
+    t = t.replace(/→/g, "gives");
+    t = t.replace(/∴/g, "therefore");
 
     t = t.replace(/\s+/g, " ").trim();
-
-    if (t.length > 1400) {
-        t = t.substring(0, 1400) + "... and so on.";
-    }
-
+    if (t.length > 1400) t = t.substring(0, 1400) + "... and so on.";
     return t;
 }
 
@@ -220,26 +475,53 @@ function speakText(text) {
     if (!window.speechSynthesis) return;
 
     window.speechSynthesis.cancel();
-
     var clean = cleanTextForSpeech(text);
     if (!clean || clean.length < 2) return;
 
     VoiceState.currentText = clean;
+    setTimeout(function() { _doSpeak(clean); }, 120);
+}
 
-    setTimeout(function() {
-        _doSpeak(clean);
-    }, 120);
+// ── SPEAK SPECIFIC RESPONSE (per message) ────────────────────
+function speakResponse(text, btnEl) {
+    // If already speaking this, stop
+    if (VoiceState.speaking) {
+        stopSpeaking();
+        if (btnEl) {
+            btnEl.textContent = "🔊";
+            btnEl.title       = "Listen to this answer";
+        }
+        return;
+    }
+
+    if (btnEl) {
+        btnEl.textContent = "⏹";
+        btnEl.title       = "Stop reading";
+    }
+
+    speakText(text);
+
+    // When speech ends, reset button
+    var checkDone = setInterval(function() {
+        if (!VoiceState.speaking) {
+            if (btnEl) {
+                btnEl.textContent = "🔊";
+                btnEl.title       = "Listen to this answer";
+            }
+            clearInterval(checkDone);
+        }
+    }, 500);
 }
 
 function _doSpeak(clean) {
-    var utt  = new SpeechSynthesisUtterance(clean);
+    var utt    = new SpeechSynthesisUtterance(clean);
     utt.volume = VoiceState.volume;
     utt.rate   = VoiceState.rate;
     utt.pitch  = VoiceState.pitch;
     utt.lang   = "en-US";
 
     if (VoiceState.voiceIndex >= 0 && VoiceState.voices[VoiceState.voiceIndex]) {
-        var v  = VoiceState.voices[VoiceState.voiceIndex];
+        var v    = VoiceState.voices[VoiceState.voiceIndex];
         utt.voice = v;
         utt.lang  = v.lang;
     } else {
@@ -251,23 +533,28 @@ function _doSpeak(clean) {
         if (best) { utt.voice = best; utt.lang = best.lang; }
     }
 
-    utt.onstart  = function() { VoiceState.speaking = true;  VoiceState.paused = false; VoiceState.utterance = utt; _updateOutputUI(); };
-    utt.onend    = function() { VoiceState.speaking = false; VoiceState.paused = false; VoiceState.utterance = null; _updateOutputUI(); };
-    utt.onerror  = function(e) { if (e.error === "interrupted" || e.error === "canceled") return; console.warn("Speech error:", e.error); VoiceState.speaking = false; VoiceState.paused = false; _updateOutputUI(); };
-    utt.onpause  = function() { VoiceState.paused = true;  _updateOutputUI(); };
-    utt.onresume = function() { VoiceState.paused = false; _updateOutputUI(); };
+    utt.onstart  = function() { VoiceState.speaking = true;  VoiceState.paused = false; VoiceState.utterance = utt; _updateUI(); };
+    utt.onend    = function() { VoiceState.speaking = false; VoiceState.paused = false; VoiceState.utterance = null; _updateUI(); };
+    utt.onerror  = function(e) {
+        if (e.error === "interrupted" || e.error === "canceled") return;
+        console.warn("Speech error:", e.error);
+        VoiceState.speaking = false; VoiceState.paused = false; VoiceState.utterance = null; _updateUI();
+    };
+    utt.onpause  = function() { VoiceState.paused = true;  _updateUI(); };
+    utt.onresume = function() { VoiceState.paused = false; _updateUI(); };
 
     VoiceState.utterance = utt;
     window.speechSynthesis.speak(utt);
 
-    // Chrome bug fix
+    // Chrome resume bug fix
     var fix = setInterval(function() {
         if (!VoiceState.speaking) { clearInterval(fix); return; }
-        if (window.speechSynthesis.paused) return;
-        window.speechSynthesis.resume();
+        if (!window.speechSynthesis.paused) window.speechSynthesis.resume();
     }, 10000);
 }
 
+
+ // ── PAUSE / RESUME ────────────────────────────────────────────
 function pauseSpeaking() {
     if (!window.speechSynthesis || !VoiceState.speaking) return;
     if (VoiceState.paused) {
@@ -277,9 +564,10 @@ function pauseSpeaking() {
         window.speechSynthesis.pause();
         VoiceState.paused = true;
     }
-    _updateOutputUI();
+    _updateUI();
 }
 
+// ── STOP ──────────────────────────────────────────────────────
 function stopSpeaking() {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -287,23 +575,23 @@ function stopSpeaking() {
     VoiceState.paused      = false;
     VoiceState.utterance   = null;
     VoiceState.currentText = "";
-    _updateOutputUI();
+    _updateUI();
 }
 
+// ── REPLAY LAST MESSAGE ───────────────────────────────────────
 function replayLastMessage() {
     var msgs = document.querySelectorAll(".markdown-message");
     if (msgs.length > 0) {
         var last = msgs[msgs.length - 1];
-        var text = last.innerText || last.textContent || "";
-        if (text) { speakText(text); return; }
-    }
-    if (VoiceState.currentText) {
-        speakText(VoiceState.currentText);
+        speakText(last.innerText || last.textContent || "");
     }
 }
 
+// ── TOGGLE VOICE ON/OFF ───────────────────────────────────────
 function toggleVoice() {
     VoiceState.enabled = !VoiceState.enabled;
+    if (!VoiceState.enabled) stopSpeaking();
+
     var btn = document.getElementById("voiceToggleBtn");
     if (btn) {
         if (VoiceState.enabled) {
@@ -318,59 +606,58 @@ function toggleVoice() {
             btn.style.background  = "rgba(148,163,184,0.06)";
         }
     }
-    if (!VoiceState.enabled) stopSpeaking();
 }
 
+// ── SET VOLUME — INSTANT ──────────────────────────────────────
 function setVolume(value) {
     VoiceState.volume = parseFloat(value);
     var label = document.getElementById("volumeLabel");
     if (label) label.textContent = Math.round(VoiceState.volume * 100) + "%";
     if (VoiceState.speaking && VoiceState.utterance) {
-        var text = VoiceState.utterance.text || VoiceState.currentText;
-        if (text) speakText(text);
+        var t = VoiceState.utterance.text || VoiceState.currentText;
+        if (t) speakText(t);
     }
 }
 
+// ── SET SPEED — INSTANT ───────────────────────────────────────
 function setSpeed(value) {
     VoiceState.rate = parseFloat(value);
-    var labels = { "0.6": "Slow", "0.85": "Normal", "1.2": "Fast", "1.6": "Very Fast" };
-    var label  = document.getElementById("speedLabel");
+    var labels      = { "0.6": "Slow", "0.85": "Normal", "1.2": "Fast", "1.6": "Very Fast" };
+    var label       = document.getElementById("speedLabel");
     if (label) label.textContent = labels[value] || (value + "x");
     if (VoiceState.speaking && VoiceState.utterance) {
-        var text = VoiceState.utterance.text || VoiceState.currentText;
-        if (text) speakText(text);
+        var t = VoiceState.utterance.text || VoiceState.currentText;
+        if (t) speakText(t);
     }
 }
 
+// ── SET VOICE — INSTANT ───────────────────────────────────────
 function setVoice(index) {
     VoiceState.voiceIndex = parseInt(index);
-    var indicator = document.getElementById("voiceIndicator");
-    if (indicator && !VoiceState.speaking) {
+
+    // Also update speech recognition language to match
+    if (VoiceInput.recognition) {
         var v = VoiceState.voices[VoiceState.voiceIndex];
-        if (v) {
-            indicator.textContent = "🎙 " + v.name.split(" ").slice(0, 2).join(" ");
-            setTimeout(function() {
-                if (!VoiceState.speaking) indicator.innerHTML = "🔊 Ready";
-            }, 2000);
-        }
+        if (v) VoiceInput.recognition.lang = v.lang;
+        else   VoiceInput.recognition.lang = "en-US";
     }
+
     if (VoiceState.speaking && VoiceState.utterance) {
-        var text = VoiceState.utterance.text || VoiceState.currentText;
-        if (text) speakText(text);
+        var t = VoiceState.utterance.text || VoiceState.currentText;
+        if (t) speakText(t);
     } else {
-        var v2 = VoiceState.voices[VoiceState.voiceIndex];
-        if (v2) speakText("Voice selected: " + v2.name);
+        var vv = VoiceState.voices[VoiceState.voiceIndex];
+        if (vv) speakText("Voice selected. " + vv.name + ".");
     }
 }
 
-// ── UPDATE OUTPUT UI ──────────────────────────────────────────
-function _updateOutputUI() {
+// ── UPDATE UI ─────────────────────────────────────────────────
+function _updateUI() {
     var isSpeaking = VoiceState.speaking;
     var isPaused   = VoiceState.paused;
 
     var pauseBtn  = document.getElementById("voicePauseBtn");
     var stopBtn   = document.getElementById("voiceStopBtn");
-    var replayBtn = document.getElementById("voicePlayBtn");
     var indicator = document.getElementById("voiceIndicator");
 
     if (pauseBtn) {
@@ -382,10 +669,7 @@ function _updateOutputUI() {
         stopBtn.disabled      = !isSpeaking;
         stopBtn.style.opacity = isSpeaking ? "1" : "0.35";
     }
-    if (replayBtn) {
-        replayBtn.disabled      = false;
-        replayBtn.style.opacity = "1";
-    }
+
     if (indicator) {
         if (isSpeaking && !isPaused) {
             indicator.innerHTML =
@@ -404,51 +688,7 @@ function _updateOutputUI() {
     }
 }
 
-// ── WELCOME SPEECH ────────────────────────────────────────────
-function playWelcomeSpeech() {
-    var text =
-        "Welcome to Math AI Assistant — your intelligent, voice-powered math tutor, " +
-        "built for HighupWeb Academy in Cameroon. " +
-        "I am powered by artificial intelligence and designed for 2026 and beyond. " +
-        "I can solve equations, draw graphs, explain concepts from the very basics, " +
-        "verify every answer automatically, and I speak every explanation aloud. " +
-        "You can also speak to me directly using the microphone button. " +
-        "Whether you need algebra, calculus, trigonometry, or statistics — " +
-        "I am here. Go ahead. Ask me anything.";
-    speakText(text);
-}
-
-// ── INTERACTION PROMPT ────────────────────────────────────────
-function showInteractionPrompt() {
-    var existing = document.getElementById("voicePrompt");
-    if (existing) return;
-
-    var prompt     = document.createElement("div");
-    prompt.id      = "voicePrompt";
-    prompt.className = "voice-prompt";
-    prompt.innerHTML =
-        "<span class='vp-icon'>🔊</span>" +
-        "<span class='vp-text'>Tap anywhere to enable voice</span>" +
-        "<button class='vp-btn' onclick='dismissInteractionPrompt()'>Enable</button>";
-    document.body.appendChild(prompt);
-
-    setTimeout(function() {
-        prompt.style.opacity   = "1";
-        prompt.style.transform = "translateX(-50%) translateY(0)";
-    }, 100);
-}
-
-function dismissInteractionPrompt() {
-    var prompt = document.getElementById("voicePrompt");
-    if (prompt) {
-        prompt.style.opacity   = "0";
-        prompt.style.transform = "translateX(-50%) translateY(20px)";
-        setTimeout(function() {
-            if (prompt.parentNode) prompt.parentNode.removeChild(prompt);
-        }, 400);
-    }
-}
-
+// ── HELPERS ───────────────────────────────────────────────────
 function hideVoiceBar() {
     var bar = document.getElementById("voiceBar");
     if (bar) bar.style.display = "none";
@@ -458,290 +698,8 @@ function isVoiceSupported() {
     return "speechSynthesis" in window;
 }
 
-// ══════════════════════════════════════════════════════════════
-// VOICE INPUT — SPEECH RECOGNITION — PATH 7
-// ══════════════════════════════════════════════════════════════
-
-function initSpeechRecognition() {
-    var SpeechRecognition =
-        window.SpeechRecognition ||
-        window.webkitSpeechRecognition ||
-        window.mozSpeechRecognition ||
-        window.msSpeechRecognition;
-
-    if (!SpeechRecognition) {
-        console.warn("Speech recognition not supported in this browser");
-        RecognitionState.supported = false;
-        // Hide mic button if not supported
-        var mic = document.getElementById("micBtn");
-        if (mic) {
-            mic.title   = "Voice input not supported in this browser";
-            mic.style.opacity = "0.4";
-            mic.style.cursor  = "not-allowed";
-        }
-        return false;
-    }
-
-    RecognitionState.supported = true;
-    var recognition = new SpeechRecognition();
-
-    recognition.continuous      = false; // Stop after one sentence
-    recognition.interimResults  = true;  // Show text as you speak
-    recognition.maxAlternatives = 1;
-    recognition.lang            = "en-US";
-
-    // ── RESULT: text received ────────────────────────────────
-    recognition.onresult = function(event) {
-        var interim = "";
-        var final   = "";
-
-        for (var i = event.resultIndex; i < event.results.length; i++) {
-            var transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-                final += transcript;
-            } else {
-                interim += transcript;
-            }
-        }
-
-        RecognitionState.finalText   = final;
-        RecognitionState.interimText = interim;
-
-        var input = document.getElementById("messageInput");
-        if (input) {
-            // Show interim text in grey, final in white
-            if (final) {
-                input.value = final;
-                input.style.color = "";
-            } else {
-                input.value = interim;
-                input.style.color = "rgba(255,255,255,0.5)";
-            }
-        }
-
-        updateMicStatus("🎤 " + (interim || final || "Listening..."));
-    };
-
-    // ── END: recognition finished ────────────────────────────
-    recognition.onend = function() {
-        RecognitionState.active = false;
-        setMicInactive();
-
-        var input = document.getElementById("messageInput");
-        if (input) {
-            input.style.color = "";
-        }
-
-        var finalText = RecognitionState.finalText.trim();
-
-        if (finalText) {
-            if (input) input.value = finalText;
-            // Auto-send after short delay
-            setTimeout(function() {
-                if (input && input.value.trim() === finalText) {
-                    sendMessage();
-                }
-            }, 600);
-        } else {
-            // Nothing was said
-            updateMicStatus(null);
-        }
-    };
-
-
-
-    
-// ── START ─────────────────────────────────────────────────
-    recognition.onstart = function() {
-        RecognitionState.active = true;
-        RecognitionState.finalText   = "";
-        RecognitionState.interimText = "";
-
-        // Stop any current speech output
-        stopSpeaking();
-
-        // Clear input and show listening state
-        var input = document.getElementById("messageInput");
-        if (input) {
-            input.value       = "";
-            input.placeholder = "🎤 Listening... speak now";
-        }
-
-        setMicActive();
-        updateMicStatus("🎤 Listening...");
-    };
-
-    // ── ERROR ─────────────────────────────────────────────────
-    recognition.onerror = function(event) {
-        console.warn("Recognition error:", event.error);
-        RecognitionState.active = false;
-        setMicInactive();
-
-        var input = document.getElementById("messageInput");
-        if (input) {
-            input.value       = "";
-            input.placeholder = "Ask any math question...";
-            input.style.color = "";
-        }
-
-        var messages = {
-            "no-speech":          "No speech detected. Please try again.",
-            "audio-capture":      "Microphone not found. Please check your microphone.",
-            "not-allowed":        "Microphone access denied. Please allow microphone access in your browser settings.",
-            "network":            "Network error. Please check your internet connection.",
-            "aborted":            null, // User cancelled — no message
-            "service-not-allowed": "Voice input not available. Try typing instead."
-        };
-
-        var msg = messages[event.error];
-        if (msg) {
-            addMathMarkdownMessage("🎤 " + msg);
-            speakText(msg);
-        }
-
-        updateMicStatus(null);
-    };
-
-    // ── SOUND START (user started speaking) ──────────────────
-    recognition.onsoundstart = function() {
-        updateMicStatus("🎤 Hearing you...");
-    };
-
-    // ── SPEECH START ──────────────────────────────────────────
-    recognition.onspeechstart = function() {
-        updateMicStatus("🎤 Processing...");
-    };
-
-    RecognitionState.recognition = recognition;
-    console.log("Speech recognition initialized");
-    return true;
-}
-
-// ── TOGGLE MIC ────────────────────────────────────────────────
-function toggleMic() {
-    if (!RecognitionState.supported) {
-        addMathMarkdownMessage(
-            "🎤 **Voice input is not supported** in your browser.\n\n" +
-            "**Supported browsers:**\n" +
-            "- Google Chrome (recommended)\n" +
-            "- Microsoft Edge\n" +
-            "- Safari (iOS/macOS)\n\n" +
-            "Please use Chrome for the best experience."
-        );
-        return;
-    }
-
-    if (RecognitionState.active) {
-        // Stop listening
-        stopListening();
-    } else {
-        // Start listening
-        startListening();
-    }
-}
-
-// ── START LISTENING ───────────────────────────────────────────
-function startListening() {
-    if (!RecognitionState.recognition) {
-        initSpeechRecognition();
-    }
-    if (!RecognitionState.recognition) return;
-
-    // Set language to match selected voice language
-    if (VoiceState.voiceIndex >= 0 && VoiceState.voices[VoiceState.voiceIndex]) {
-        RecognitionState.recognition.lang = VoiceState.voices[VoiceState.voiceIndex].lang;
-    } else {
-        RecognitionState.recognition.lang = "en-US";
-    }
-
-    try {
-        RecognitionState.recognition.start();
-    } catch (e) {
-        console.warn("Recognition start error:", e);
-        // Already running — stop and restart
-        RecognitionState.recognition.stop();
-        setTimeout(function() {
-            try { RecognitionState.recognition.start(); } catch (e2) { console.warn(e2); }
-        }, 300);
-    }
-}
-
-// ── STOP LISTENING ────────────────────────────────────────────
-function stopListening() {
-    if (RecognitionState.recognition && RecognitionState.active) {
-        RecognitionState.recognition.stop();
-    }
-    RecognitionState.active = false;
-    setMicInactive();
-
-    var input = document.getElementById("messageInput");
-    if (input) {
-        input.placeholder = "Ask any math question...";
-        input.style.color = "";
-    }
-
-    updateMicStatus(null);
-}
-
-// ── SET MIC ACTIVE STATE ──────────────────────────────────────
-function setMicActive() {
-    var micBtn = document.getElementById("micBtn");
-    if (!micBtn) return;
-
-    micBtn.classList.add("mic-listening");
-    micBtn.innerHTML   = "⏹";
-    micBtn.title       = "Click to stop listening";
-
-    // Show listening indicator
-    var indicator = document.getElementById("micIndicator");
-    if (indicator) {
-        indicator.style.display = "flex";
-    }
-}
-
-// ── SET MIC INACTIVE STATE ────────────────────────────────────
-function setMicInactive() {
-    var micBtn = document.getElementById("micBtn");
-    if (!micBtn) return;
-
-    micBtn.classList.remove("mic-listening");
-    micBtn.innerHTML = "🎤";
-    micBtn.title     = "Click to speak your question";
-
-    // Hide listening indicator
-    var indicator = document.getElementById("micIndicator");
-    if (indicator) {
-        indicator.style.display = "none";
-    }
-
-    // Restore placeholder
-    var input = document.getElementById("messageInput");
-    if (input) {
-        input.placeholder = "Ask any math question...";
-    }
-}
-
-// ── UPDATE MIC STATUS TEXT ────────────────────────────────────
-function updateMicStatus(text) {
-    var status = document.getElementById("micStatus");
-    if (!status) return;
-
-    if (text) {
-        status.textContent  = text;
-        status.style.display = "block";
-    } else {
-        status.style.display = "none";
-        status.textContent  = "";
-    }
-}
-
-// ── SET RECOGNITION LANGUAGE ──────────────────────────────────
-// Called when voice is changed so recognition matches output language
-function syncRecognitionLanguage() {
-    if (!RecognitionState.recognition) return;
-    if (VoiceState.voiceIndex >= 0 && VoiceState.voices[VoiceState.voiceIndex]) {
-        RecognitionState.recognition.lang = VoiceState.voices[VoiceState.voiceIndex].lang;
-    } else {
-        RecognitionState.recognition.lang = "en-US";
-    }
+function escapeHtmlVoice(text) {
+    var d = document.createElement("div");
+    d.appendChild(document.createTextNode(text || ""));
+    return d.innerHTML;
 }
