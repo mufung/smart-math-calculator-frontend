@@ -1,9 +1,9 @@
 // ============================================================
-// app.js — Math AI Assistant — Path 7
-// Voice input: record → preview → send or cancel
+// app.js — Math AI Assistant — Path 9
+// Now uses multiFallbackLambda as primary chat endpoint
 // ============================================================
 
-var CHAT_API     = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
+var CHAT_API     = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/fallback";
 var GRAPH_API    = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/graph";
 var IMAGE_API    = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/image";
 var SESSIONS_API = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/sessions";
@@ -72,7 +72,9 @@ async function loadSessions() {
             if (session.sessionId === sessionId) li.classList.add("active-chat");
 
             var date = session.date
-                ? new Date(Number(session.date)).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                ? new Date(Number(session.date)).toLocaleDateString("en-US", {
+                    month: "short", day: "numeric"
+                  })
                 : "";
 
             li.innerHTML =
@@ -82,11 +84,14 @@ async function loadSessions() {
                     "<span class='chat-item-date'>" + date + "</span>" +
                 "</div>";
 
-            li.addEventListener("click", function() { loadHistory(session.sessionId, li); });
+            li.addEventListener("click", function() {
+                loadHistory(session.sessionId, li);
+            });
             list.appendChild(li);
         });
 
         console.log("Loaded " + sessions.length + " sessions");
+
     } catch (err) {
         console.error("Sessions error:", err);
         list.innerHTML = "<li class='no-chats'>Could not load chats</li>";
@@ -114,6 +119,7 @@ async function loadHistory(sid, clickedEl) {
 
         var res  = await fetch(HISTORY_API + "?sessionId=" + encodeURIComponent(sid));
         var data = await res.json();
+
         if (container) container.innerHTML = "";
 
         var messages = data.messages || [];
@@ -164,7 +170,6 @@ async function sendMessage() {
     var message = input.value.trim();
     if (!message) return;
 
-    // Mark user as interacted
     if (!VoiceState.userInteracted) {
         VoiceState.userInteracted = true;
         dismissInteractionPrompt();
@@ -172,7 +177,6 @@ async function sendMessage() {
 
     stopSpeaking();
     hideRecordingPanel();
-
     addUserMessage(message);
     input.value = "";
     hideQuickReplies();
@@ -184,7 +188,8 @@ async function sendMessage() {
     if (isConfused)   { recordClarificationRequest(); showClarificationIndicator(); }
     if (isUnderstood) { recordUnderstanding(); }
 
-    var isGraphRequest = /\b(graph|plot|chart|sketch)\b/i.test(message);
+    var isGraphRequest =
+        /\b(graph|plot|chart|sketch)\b/i.test(message);
     var isImageRequest =
         /^(draw|create|sketch|show)\s.*(square|circle|triangle|hexagon|polygon|rectangle|pentagon|octagon|shape)/i.test(message) ||
         /\b(imagen|generate image|ai image|ai picture)\b/i.test(message);
@@ -198,6 +203,7 @@ async function sendMessage() {
             await handleChat(message);
         }
         setTimeout(loadSessions, 2000);
+
     } catch (error) {
         removeTyping();
         addMathMarkdownMessage("Something went wrong. Please try again.");
@@ -212,7 +218,12 @@ async function handleChat(message) {
     var res = await fetch(CHAT_API, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ message: message, sessionId: sessionId, history: history, contextAdd: contextAdd })
+        body:    JSON.stringify({
+            message:    message,
+            sessionId:  sessionId,
+            history:    history,
+            contextAdd: contextAdd
+        })
     });
 
     var data = await res.json();
@@ -222,17 +233,15 @@ async function handleChat(message) {
     localStorage.setItem("sessionId", sessionId);
 
     var reply = data.reply || "No response received.";
+
     addToHistory("user",      message);
     addToHistory("assistant", reply);
 
     removeTyping();
     removeClarificationIndicator();
 
-    // addMathMarkdownMessage now adds a 🔊 button per response automatically
     var msgWrapper = addMathMarkdownMessage(reply);
     setTimeout(showQuickReplies, 400);
-
-    // Auto-speak the reply via global voice
     setTimeout(function() { speakText(reply); }, 200);
 
     verifyAndShowBadge(message, reply, msgWrapper);
@@ -274,11 +283,15 @@ function addVerificationBadge(messageWrapper, result) {
     badge.innerHTML =
         "<span class='badge-icon'>" + (result.badge || "ℹ️") + "</span>" +
         "<span class='badge-label'>" + escapeHtml(result.badge_text || "Checked") + "</span>" +
-        (result.computed_answer ? "<span class='badge-answer'>= " + escapeHtml(result.computed_answer) + "</span>" : "") +
+        (result.computed_answer
+            ? "<span class='badge-answer'>= " + escapeHtml(result.computed_answer) + "</span>"
+            : "") +
         "<span class='badge-details-toggle' onclick='toggleBadgeDetails(this)'>▼</span>" +
         "<div class='badge-details hidden'>" +
             escapeHtml(result.message || "") +
-            (result.confidence ? "<span class='badge-confidence'>Confidence: " + result.confidence + "</span>" : "") +
+            (result.confidence
+                ? "<span class='badge-confidence'>Confidence: " + result.confidence + "</span>"
+                : "") +
         "</div>";
     messageWrapper.appendChild(badge);
 }
@@ -296,6 +309,7 @@ async function handleGraph(message) {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ expression: message, sessionId: sessionId })
     });
+
     var data = await res.json();
     if (typeof data.body === "string") data = JSON.parse(data.body);
     removeTyping();
@@ -305,10 +319,17 @@ async function handleGraph(message) {
         addToHistory("assistant", "Graph plotted: " + (data.label || message));
         addGraph(data);
         setTimeout(function() {
-            speakText("I have plotted the graph of " + (data.label || message) + ". You can see the curve on your screen. Do you have any questions about what you see?");
+            speakText(
+                "I have plotted the graph of " + (data.label || message) +
+                ". You can see the curve on your screen. " +
+                "Do you have any questions about what you see?"
+            );
         }, 600);
     } else {
-        addMathMarkdownMessage("Could not generate graph.\n\n**Try these:**\n- plot x squared\n- graph sin(x)\n- plot x cubed minus 2x");
+        addMathMarkdownMessage(
+            "Could not generate graph.\n\n**Try these examples:**\n" +
+            "- plot x squared\n- graph sin(x)\n- plot x cubed minus 2x\n- graph cos(x)"
+        );
     }
 }
 
@@ -333,12 +354,23 @@ async function handleImage(message) {
         var sizeMatch  = msg.match(/size\s*(\d+)|(\d+)\s*px/);
         var size       = sizeMatch ? parseInt(sizeMatch[1] || sizeMatch[2]) : 150;
 
-        var colorList  = ["red","blue","green","yellow","purple","orange","pink","cyan","royalblue","gold","white"];
-        var color      = "royalblue";
+        var colorList = ["red","blue","green","yellow","purple","orange","pink",
+                         "cyan","royalblue","gold","white"];
+        var color     = "royalblue";
         for (var ci = 0; ci < colorList.length; ci++) {
             if (msg.includes(colorList[ci])) { color = colorList[ci]; break; }
         }
-        body = { action: "draw_shape", shape: shape, sides: sides, size: size, color: color, outline: "white", label: message, sessionId: sessionId };
+
+        body = {
+            action:   "draw_shape",
+            shape:    shape,
+            sides:    sides,
+            size:     size,
+            color:    color,
+            outline:  "white",
+            label:    message,
+            sessionId: sessionId
+        };
     }
 
     var res = await fetch(IMAGE_API, {
@@ -357,7 +389,7 @@ async function handleImage(message) {
 
         if      (data.data_url)                    displayUrl = data.data_url;
         else if (data.image)                       displayUrl = "data:image/png;base64," + data.image;
-        else if (data.images && data.images[0])   {
+        else if (data.images && data.images[0]) {
             displayUrl = data.images[0].data_url;
             s3Url      = data.images[0].s3_url || s3Url;
         } else if (s3Url)                          displayUrl = s3Url;
@@ -367,10 +399,16 @@ async function handleImage(message) {
             addToHistory("user",      message);
             addToHistory("assistant", "[Image generated]");
             setTimeout(function() {
-                speakText("There you go! I have drawn the " + (body.shape || "image") + " for you on your screen.");
+                speakText(
+                    "There you go! I have drawn the " +
+                    (body.shape || "image") +
+                    " for you. You can see it on your screen now!"
+                );
             }, 500);
         } else {
-            addMathMarkdownMessage("Could not generate image: " + (data.error || "Unknown error"));
+            addMathMarkdownMessage(
+                "Could not generate image: " + (data.error || "Unknown error")
+            );
         }
     } catch (e) {
         console.error("Image error:", e);
@@ -395,8 +433,15 @@ function addGraph(data) {
     }
     points.sort(function(a, b) { return a.x - b.x; });
 
-    if (points.length === 0) { addMathMarkdownMessage("No valid data points to plot."); return; }
+    if (points.length === 0) {
+        addMathMarkdownMessage("No valid data points to plot.");
+        return;
+    }
 
+
+    
+
+    
     var allY       = points.map(function(p) { return p.y; });
     var minY       = Math.min.apply(null, allY);
     var maxY       = Math.max.apply(null, allY);
@@ -413,43 +458,95 @@ function addGraph(data) {
     var xRange2    = xMax - xMin;
     var xTickStep  = xRange2 <= 4 ? 0.5 : xRange2 <= 8 ? 1 : xRange2 <= 16 ? 2 : 5;
     var yDispRange = yMax - yMin;
-    var yTickStep  = yDispRange <= 4 ? 0.5 : yDispRange <= 8 ? 1 : yDispRange <= 16 ? 2 : yDispRange <= 40 ? 5 : 10;
+    var yTickStep  = yDispRange <= 4 ? 0.5 : yDispRange <= 8 ? 1 :
+                     yDispRange <= 16 ? 2 : yDispRange <= 40 ? 5 : 10;
 
     new Chart(canvas, {
         type: "scatter",
-        data: { datasets: [{
-            data: points, showLine: true,
-            borderColor: "#2563eb", borderWidth: 2.5,
-            pointRadius: 0, pointHoverRadius: 5,
-            tension: 0, fill: false
-        }]},
+        data: {
+            datasets: [{
+                data:             points,
+                showLine:         true,
+                borderColor:      "#2563eb",
+                borderWidth:      2.5,
+                pointRadius:      0,
+                pointHoverRadius: 5,
+                tension:          0,
+                fill:             false
+            }]
+        },
         options: {
-            responsive: true, maintainAspectRatio: false,
-            animation: { duration: 700 },
+            responsive:          true,
+            maintainAspectRatio: false,
+            animation:           { duration: 700 },
             plugins: {
-                legend: { display: false },
+                legend:  { display: false },
                 tooltip: {
-                    backgroundColor: "#1e3a5f", titleColor: "#fff", bodyColor: "#93c5fd",
-                    padding: 10, cornerRadius: 8,
+                    backgroundColor: "#1e3a5f",
+                    titleColor:      "#fff",
+                    bodyColor:       "#93c5fd",
+                    padding:         10,
+                    cornerRadius:    8,
                     callbacks: {
                         title: function() { return data.label || "f(x)"; },
-                        label: function(ctx) { return "x = " + ctx.parsed.x.toFixed(2) + ",  y = " + ctx.parsed.y.toFixed(3); }
+                        label: function(ctx) {
+                            return "x = " + ctx.parsed.x.toFixed(2) +
+                                   ",  y = " + ctx.parsed.y.toFixed(3);
+                        }
                     }
                 }
             },
             scales: {
                 x: {
-                    type: "linear", min: xMin, max: xMax, position: "center",
-                    title: { display: true, text: "x", color: "#1e293b", font: { size: 13, weight: "bold" } },
-                    grid:  { color: function(ctx) { return ctx.tick.value === 0 ? "#000" : "#e5e7eb"; }, lineWidth: function(ctx) { return ctx.tick.value === 0 ? 2 : 1; } },
-                    ticks: { color: "#374151", stepSize: xTickStep, font: { size: 11, family: "monospace" }, callback: function(val) { return val === 0 ? "0" : Number.isInteger(val) ? val : val.toFixed(1); } },
+                    type:   "linear",
+                    min:    xMin,
+                    max:    xMax,
+                    position: "center",
+                    title:  { display: true, text: "x", color: "#1e293b",
+                              font: { size: 13, weight: "bold" } },
+                    grid:   {
+                        color: function(ctx) {
+                            return ctx.tick.value === 0 ? "#000" : "#e5e7eb";
+                        },
+                        lineWidth: function(ctx) {
+                            return ctx.tick.value === 0 ? 2 : 1;
+                        }
+                    },
+                    ticks:  {
+                        color: "#374151",
+                        stepSize: xTickStep,
+                        font: { size: 11, family: "monospace" },
+                        callback: function(val) {
+                            return val === 0 ? "0" :
+                                   Number.isInteger(val) ? val : val.toFixed(1);
+                        }
+                    },
                     border: { display: true, color: "#111827", width: 2 }
                 },
                 y: {
-                    type: "linear", min: yMin, max: yMax, position: "center",
-                    title: { display: true, text: "y", color: "#1e293b", font: { size: 13, weight: "bold" } },
-                    grid:  { color: function(ctx) { return ctx.tick.value === 0 ? "#000" : "#e5e7eb"; }, lineWidth: function(ctx) { return ctx.tick.value === 0 ? 2 : 1; } },
-                    ticks: { color: "#374151", stepSize: yTickStep, font: { size: 11, family: "monospace" }, callback: function(val) { return val === 0 ? "0" : Number.isInteger(val) ? val : val.toFixed(1); } },
+                    type:   "linear",
+                    min:    yMin,
+                    max:    yMax,
+                    position: "center",
+                    title:  { display: true, text: "y", color: "#1e293b",
+                              font: { size: 13, weight: "bold" } },
+                    grid:   {
+                        color: function(ctx) {
+                            return ctx.tick.value === 0 ? "#000" : "#e5e7eb";
+                        },
+                        lineWidth: function(ctx) {
+                            return ctx.tick.value === 0 ? 2 : 1;
+                        }
+                    },
+                    ticks:  {
+                        color: "#374151",
+                        stepSize: yTickStep,
+                        font: { size: 11, family: "monospace" },
+                        callback: function(val) {
+                            return val === 0 ? "0" :
+                                   Number.isInteger(val) ? val : val.toFixed(1);
+                        }
+                    },
                     border: { display: true, color: "#111827", width: 2 }
                 }
             }
@@ -464,8 +561,10 @@ function showClarificationIndicator() {
     var banner      = document.createElement("div");
     banner.id       = "clarificationBanner";
     banner.className = "clarification-banner";
-    banner.innerHTML = "<span class='clarification-icon'>🔄</span><span>Re-explaining with a simpler approach...</span>";
-    var inputArea    = document.querySelector(".inputArea");
+    banner.innerHTML =
+        "<span class='clarification-icon'>🔄</span>" +
+        "<span>Re-explaining with a simpler approach...</span>";
+    var inputArea = document.querySelector(".inputArea");
     if (inputArea) app.insertBefore(banner, inputArea);
 }
 
