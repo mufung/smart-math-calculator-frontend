@@ -754,3 +754,222 @@ body.light-mode .response-speak-btn {
     .vp-transcript-text  { font-size: 13px; }
     .vp-send-btn, .vp-cancel-btn { font-size: 12px; padding: 5px 12px; }
 }
+
+
+
+
+/* ══ SYMPY TRUST BADGE — PATH 10 ═══════════════════════════ */
+.sympy-trust-badge {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg,
+        rgba(16,185,129,0.12) 0%,
+        rgba(5,150,105,0.08) 100%);
+    border: 1px solid rgba(16,185,129,0.35);
+    border-radius: 12px;
+    animation: fadeIn 0.3s ease;
+}
+
+.sympy-badge-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sympy-badge-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.sympy-badge-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #10b981;
+    flex: 1;
+}
+
+.sympy-badge-checkmark {
+    font-size: 14px;
+    color: #10b981;
+    font-weight: 700;
+    background: rgba(16,185,129,0.15);
+    padding: 2px 8px;
+    border-radius: 20px;
+}
+
+.sympy-badge-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-left: 24px;
+}
+
+.sympy-badge-answer {
+    font-size: 13px;
+    font-weight: 700;
+    color: #e2e8f0;
+    font-family: monospace;
+    background: rgba(0,0,0,0.2);
+    padding: 3px 8px;
+    border-radius: 6px;
+    display: inline-block;
+    align-self: flex-start;
+}
+
+.sympy-badge-note {
+    font-size: 11px;
+    color: rgba(255,255,255,0.45);
+    font-style: italic;
+}
+
+body.light-mode .sympy-trust-badge {
+    background: linear-gradient(135deg,
+        rgba(5,150,105,0.08) 0%,
+        rgba(16,185,129,0.05) 100%) !important;
+    border-color: rgba(5,150,105,0.3) !important;
+}
+body.light-mode .sympy-badge-title    { color: #059669 !important; }
+body.light-mode .sympy-badge-checkmark { color: #059669 !important; background: rgba(5,150,105,0.1) !important; }
+body.light-mode .sympy-badge-answer   { color: #1e293b !important; background: rgba(0,0,0,0.06) !important; }
+body.light-mode .sympy-badge-note     { color: #64748b !important; }
+
+/* ══ TRUST BANNER — PATH 10 ════════════════════════════════ */
+.trust-banner {
+    background: linear-gradient(135deg,
+        rgba(16,185,129,0.15) 0%,
+        rgba(5,150,105,0.10) 100%);
+    border-bottom: 1px solid rgba(16,185,129,0.25);
+    overflow: hidden;
+    max-height: 80px;
+    transition: max-height 0.4s ease, padding 0.4s ease, opacity 0.4s ease;
+    flex-shrink: 0;
+}
+
+.trust-banner-inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 20px;
+}
+
+.trust-banner-icon { font-size: 20px; flex-shrink: 0; }
+
+.trust-banner-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.trust-banner-text strong {
+    font-size: 13px;
+    color: #10b981;
+    font-weight: 700;
+}
+
+.trust-banner-text span {
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+    line-height: 1.4;
+}
+
+.trust-banner-close {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.4);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+.trust-banner-close:hover {
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.8);
+}
+
+body.light-mode .trust-banner {
+    background: linear-gradient(135deg,
+        rgba(5,150,105,0.08) 0%,
+        rgba(16,185,129,0.05) 100%) !important;
+    border-bottom-color: rgba(5,150,105,0.2) !important;
+}
+body.light-mode .trust-banner-text strong { color: #059669 !important; }
+body.light-mode .trust-banner-text span   { color: #475569 !important; }
+body.light-mode .trust-banner-close       { color: #94a3b8 !important; }
+
+/* ══ ENGINE BADGE ═══════════════════════════════════════════ */
+.engine-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #10b981;
+    background: rgba(16,185,129,0.1);
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(16,185,129,0.25);
+    white-space: nowrap;
+}
+
+.engine-dot {
+    width: 7px; height: 7px;
+    background: #10b981;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+    flex-shrink: 0;
+}
+
+body.light-mode .engine-badge {
+    color: #059669 !important;
+    background: rgba(5,150,105,0.08) !important;
+    border-color: rgba(5,150,105,0.2) !important;
+}
+
+/* ══ TRUST PANEL — SIDEBAR ══════════════════════════════════ */
+.trust-panel {
+    background: rgba(16,185,129,0.06);
+    border: 1px solid rgba(16,185,129,0.15);
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.trust-panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #10b981;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.trust-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+}
+
+.trust-icon {
+    font-size: 13px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.trust-text {
+    font-size: 11px;
+    color: rgba(255,255,255,0.55);
+    line-height: 1.4;
+}
+
+body.light-mode .trust-panel {
+    background: rgba(5,150,105,0.06) !important;
+    border-color: rgba(5,150,105,0.15) !important;
+}
+body.light-mode .trust-panel-title { color: #059669 !important; }
+body.light-mode .trust-text        { color: #475569 !important; }
