@@ -21,13 +21,36 @@
       <span>Academy AI</span>
     </div>
 
-    <button class="new-chat-btn" onclick="startNewChat()">
-      + New Chat
-    </button>
+    <button class="new-chat-btn" onclick="startNewChat()">+ New Chat</button>
 
     <div class="chat-history-section">
       <p class="chat-history-title">Recent Chats</p>
       <ul id="chatList"></ul>
+    </div>
+
+    <!-- ── TRUST PANEL — PATH 10 ──────────────────────── -->
+    <div class="trust-panel">
+      <div class="trust-panel-title">🔬 Why Trust This AI?</div>
+      <div class="trust-item">
+        <span class="trust-icon">🧮</span>
+        <span class="trust-text">SymPy math engine computes exact answers before AI explains</span>
+      </div>
+      <div class="trust-item">
+        <span class="trust-icon">✅</span>
+        <span class="trust-text">Every answer verified for mathematical accuracy</span>
+      </div>
+      <div class="trust-item">
+        <span class="trust-icon">🤖</span>
+        <span class="trust-text">5 AI providers + 18 fallback models — never fails</span>
+      </div>
+      <div class="trust-item">
+        <span class="trust-icon">📚</span>
+        <span class="trust-text">Socratic teaching — explains WHY, not just answers</span>
+      </div>
+      <div class="trust-item">
+        <span class="trust-icon">🔒</span>
+        <span class="trust-text">All answers backed by symbolic computation</span>
+      </div>
     </div>
 
     <nav>
@@ -56,43 +79,64 @@
         <p>Project MXP &bull; HighupWeb Academy &bull; Cameroon</p>
       </div>
       <div class="topbar-right">
+        <div class="engine-badge">
+          <span class="engine-dot"></span>
+          <span>SymPy Engine Active</span>
+        </div>
         <span class="status-badge">🟢 Online</span>
       </div>
     </header>
 
+    <!-- ── TRUST BANNER ───────────────────────────────── -->
+    <div class="trust-banner" id="trustBanner">
+      <div class="trust-banner-inner">
+        <span class="trust-banner-icon">🔬</span>
+        <div class="trust-banner-text">
+          <strong>Mathematically Verified Answers</strong>
+          <span>Every response is computed by SymPy symbolic math engine before AI explains — guaranteeing 100% accurate results</span>
+        </div>
+        <button class="trust-banner-close" onclick="closeTrustBanner()">✕</button>
+      </div>
+    </div>
+
     <!-- ── VOICE BAR ──────────────────────────────────── -->
     <div class="voice-bar" id="voiceBar">
       <div class="vbar-section vbar-left">
-        <button id="voiceToggleBtn" class="voice-toggle-btn" onclick="toggleVoice()">🔊 Voice On</button>
+        <button id="voiceToggleBtn" class="voice-toggle-btn"
+                onclick="toggleVoice()">🔊 Voice On</button>
         <div id="voiceIndicator" class="voice-indicator">🔊 Ready</div>
       </div>
 
       <div class="vbar-section vbar-center">
-        <button id="voicePlayBtn"  class="vbtn vbtn-play"  onclick="replayLastMessage()">▶ Replay</button>
-        <button id="voicePauseBtn" class="vbtn vbtn-pause" onclick="pauseSpeaking()" disabled>⏸ Pause</button>
-        <button id="voiceStopBtn"  class="vbtn vbtn-stop"  onclick="stopSpeaking()"  disabled>⏹ Stop</button>
+        <button id="voicePlayBtn"  class="vbtn vbtn-play"
+                onclick="replayLastMessage()">▶ Replay</button>
+        <button id="voicePauseBtn" class="vbtn vbtn-pause"
+                onclick="pauseSpeaking()" disabled>⏸ Pause</button>
+        <button id="voiceStopBtn"  class="vbtn vbtn-stop"
+                onclick="stopSpeaking()"  disabled>⏹ Stop</button>
       </div>
 
       <div class="vbar-section vbar-right">
         <div class="vbar-control">
           <span class="vbar-label">🔈 <span id="volumeLabel">90%</span></span>
           <input type="range" min="0" max="1" step="0.05" value="0.9"
-            class="vbar-slider" id="volumeSlider" oninput="setVolume(this.value)"/>
+            class="vbar-slider" id="volumeSlider"
+            oninput="setVolume(this.value)"/>
         </div>
-
         <div class="vbar-control">
           <span class="vbar-label">⚡ <span id="speedLabel">Normal</span></span>
-          <select class="vbar-select" id="speedSelect" onchange="setSpeed(this.value)">
+          <select class="vbar-select" id="speedSelect"
+                  onchange="setSpeed(this.value)">
             <option value="0.6">Slow</option>
             <option value="0.85" selected>Normal</option>
             <option value="1.2">Fast</option>
             <option value="1.6">Very Fast</option>
           </select>
         </div>
-
         <div class="vbar-control">
           <span class="vbar-label">🎙</span>
-          <select class="vbar-select" id="voiceSelector" onchange="setVoice(this.value)">
+          <select class="vbar-select" id="voiceSelector"
+                  onchange="setVoice(this.value)">
             <option value="-1">Auto</option>
           </select>
         </div>
@@ -100,28 +144,36 @@
     </div>
 
     <!-- ── VOICE PREVIEW PANEL ────────────────────────── -->
-    <div id="voicePreviewPanel" class="voice-preview-panel" style="display:none;"></div>
+    <div id="voicePreviewPanel" class="voice-preview-panel"
+         style="display:none;"></div>
 
     <div class="app">
       <div id="chatContainer"></div>
 
       <div id="quickReplies" class="quick-replies hidden">
-        <button onclick="quickReply('Yes, I understand!')"         class="qr-btn qr-yes">✅ I understand!</button>
-        <button onclick="quickReply('Please explain more')"         class="qr-btn qr-no">🔄 Explain more</button>
-        <button onclick="quickReply('Give me another example')"     class="qr-btn qr-example">📝 More examples</button>
-        <button onclick="quickReply('Why do we do this step?')"     class="qr-btn qr-why">💡 Why this step?</button>
+        <button onclick="quickReply('Yes, I understand!')"
+                class="qr-btn qr-yes">✅ I understand!</button>
+        <button onclick="quickReply('Please explain more')"
+                class="qr-btn qr-no">🔄 Explain more</button>
+        <button onclick="quickReply('Give me another example')"
+                class="qr-btn qr-example">📝 More examples</button>
+        <button onclick="quickReply('Why do we do this step?')"
+                class="qr-btn qr-why">💡 Why this step?</button>
       </div>
 
       <div class="inputArea">
         <button class="mic-btn" id="micBtn"
                 title="Click to speak your question"
                 onclick="toggleVoiceInput()">🎤</button>
-        <input id="messageInput" placeholder="Ask any math question or tap 🎤 to speak..." autocomplete="off"/>
+        <input id="messageInput"
+               placeholder="Ask any math question or tap 🎤 to speak..."
+               autocomplete="off"/>
         <button id="sendBtn">Send ➤</button>
       </div>
 
       <div class="input-hint">
-        Try: "solve x² + 5x + 6 = 0" &bull; "plot sin(x)" &bull; 🎤 speak your question
+        Try: "solve x² + 5x + 6 = 0" &bull; "plot sin(x)" &bull;
+        "factorise x² - 9" &bull; 🎤 speak your question
       </div>
     </div>
   </div>
@@ -174,12 +226,35 @@ function onKatexLoaded() { renderAllMathInPage(); }
     });
 })();
 
-// ── SEND BUTTON ───────────────────────────────────────────────
-document.getElementById("sendBtn").addEventListener("click", function() { sendMessage(); });
+// ── TRUST BANNER ──────────────────────────────────────────────
+function closeTrustBanner() {
+    var banner = document.getElementById("trustBanner");
+    if (banner) {
+        banner.style.maxHeight = "0";
+        banner.style.padding   = "0";
+        banner.style.opacity   = "0";
+        setTimeout(function() { banner.style.display = "none"; }, 400);
+    }
+    localStorage.setItem("trustBannerClosed", "1");
+}
 
-// ── ENTER KEY ─────────────────────────────────────────────────
-document.getElementById("messageInput").addEventListener("keypress", function(e) {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+// Auto close if already closed before
+if (localStorage.getItem("trustBannerClosed")) {
+    var b = document.getElementById("trustBanner");
+    if (b) b.style.display = "none";
+}
+
+// ── SEND / ENTER / MIC ────────────────────────────────────────
+document.getElementById("sendBtn").addEventListener("click", function() {
+    sendMessage();
+});
+
+document.getElementById("messageInput").addEventListener("keypress",
+function(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
 });
 </script>
 
