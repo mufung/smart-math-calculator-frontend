@@ -1,6 +1,7 @@
 // ============================================================
-// app.js — Math AI Assistant — Path 9
-// Now uses multiFallbackLambda as primary chat endpoint
+// app.js — Math AI Assistant — Path 10
+// Now receives sympy_computed and sympy_answer from Lambda
+// Shows trust badge and sympy indicator on responses
 // ============================================================
 
 var CHAT_API     = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/fallback";
@@ -89,8 +90,6 @@ async function loadSessions() {
             });
             list.appendChild(li);
         });
-
-        console.log("Loaded " + sessions.length + " sessions");
 
     } catch (err) {
         console.error("Sessions error:", err);
@@ -244,7 +243,32 @@ async function handleChat(message) {
     setTimeout(showQuickReplies, 400);
     setTimeout(function() { speakText(reply); }, 200);
 
+    // ── Show SymPy trust indicator ────────────────────────
+    if (data.sympy_computed && data.sympy_answer) {
+        addSympyTrustBadge(msgWrapper, data.sympy_answer, data.sympy_topic);
+    }
+
     verifyAndShowBadge(message, reply, msgWrapper);
+}
+
+// ── SYMPY TRUST BADGE ─────────────────────────────────────────
+function addSympyTrustBadge(messageWrapper, sympyAnswer, topic) {
+    if (!messageWrapper) return;
+
+    var badge      = document.createElement("div");
+    badge.className = "sympy-trust-badge";
+    badge.innerHTML =
+        "<div class='sympy-badge-header'>" +
+            "<span class='sympy-badge-icon'>🔬</span>" +
+            "<span class='sympy-badge-title'>SymPy Verified Answer</span>" +
+            "<span class='sympy-badge-checkmark'>✓</span>" +
+        "</div>" +
+        "<div class='sympy-badge-body'>" +
+            "<span class='sympy-badge-answer'>" + escapeHtml(sympyAnswer) + "</span>" +
+            "<span class='sympy-badge-note'>Computed by SymPy symbolic math engine — 100% mathematically exact</span>" +
+        "</div>";
+
+    messageWrapper.insertBefore(badge, messageWrapper.firstChild);
 }
 
 async function verifyAndShowBadge(question, aiAnswer, messageWrapper) {
@@ -321,14 +345,13 @@ async function handleGraph(message) {
         setTimeout(function() {
             speakText(
                 "I have plotted the graph of " + (data.label || message) +
-                ". You can see the curve on your screen. " +
-                "Do you have any questions about what you see?"
+                ". You can see the curve on your screen!"
             );
         }, 600);
     } else {
         addMathMarkdownMessage(
-            "Could not generate graph.\n\n**Try these examples:**\n" +
-            "- plot x squared\n- graph sin(x)\n- plot x cubed minus 2x\n- graph cos(x)"
+            "Could not generate graph.\n\n**Try:**\n" +
+            "- plot x squared\n- graph sin(x)\n- plot x cubed minus 2x"
         );
     }
 }
@@ -354,21 +377,21 @@ async function handleImage(message) {
         var sizeMatch  = msg.match(/size\s*(\d+)|(\d+)\s*px/);
         var size       = sizeMatch ? parseInt(sizeMatch[1] || sizeMatch[2]) : 150;
 
-        var colorList = ["red","blue","green","yellow","purple","orange","pink",
-                         "cyan","royalblue","gold","white"];
+        var colorList = ["red","blue","green","yellow","purple","orange",
+                         "pink","cyan","royalblue","gold","white"];
         var color     = "royalblue";
         for (var ci = 0; ci < colorList.length; ci++) {
             if (msg.includes(colorList[ci])) { color = colorList[ci]; break; }
         }
 
         body = {
-            action:   "draw_shape",
-            shape:    shape,
-            sides:    sides,
-            size:     size,
-            color:    color,
-            outline:  "white",
-            label:    message,
+            action:    "draw_shape",
+            shape:     shape,
+            sides:     sides,
+            size:      size,
+            color:     color,
+            outline:   "white",
+            label:     message,
             sessionId: sessionId
         };
     }
@@ -399,11 +422,8 @@ async function handleImage(message) {
             addToHistory("user",      message);
             addToHistory("assistant", "[Image generated]");
             setTimeout(function() {
-                speakText(
-                    "There you go! I have drawn the " +
-                    (body.shape || "image") +
-                    " for you. You can see it on your screen now!"
-                );
+                speakText("There you go! I have drawn the " +
+                    (body.shape || "image") + " for you!");
             }, 500);
         } else {
             addMathMarkdownMessage(
@@ -411,7 +431,6 @@ async function handleImage(message) {
             );
         }
     } catch (e) {
-        console.error("Image error:", e);
         addMathMarkdownMessage("Could not display image. Please try again.");
     }
 }
@@ -439,10 +458,8 @@ function addGraph(data) {
     }
 
 
-    
 
-    
-    var allY       = points.map(function(p) { return p.y; });
+ var allY       = points.map(function(p) { return p.y; });
     var minY       = Math.min.apply(null, allY);
     var maxY       = Math.max.apply(null, allY);
     var yRange     = maxY - minY || 4;
@@ -463,18 +480,16 @@ function addGraph(data) {
 
     new Chart(canvas, {
         type: "scatter",
-        data: {
-            datasets: [{
-                data:             points,
-                showLine:         true,
-                borderColor:      "#2563eb",
-                borderWidth:      2.5,
-                pointRadius:      0,
-                pointHoverRadius: 5,
-                tension:          0,
-                fill:             false
-            }]
-        },
+        data: { datasets: [{
+            data:             points,
+            showLine:         true,
+            borderColor:      "#2563eb",
+            borderWidth:      2.5,
+            pointRadius:      0,
+            pointHoverRadius: 5,
+            tension:          0,
+            fill:             false
+        }]},
         options: {
             responsive:          true,
             maintainAspectRatio: false,
@@ -498,13 +513,10 @@ function addGraph(data) {
             },
             scales: {
                 x: {
-                    type:   "linear",
-                    min:    xMin,
-                    max:    xMax,
-                    position: "center",
-                    title:  { display: true, text: "x", color: "#1e293b",
-                              font: { size: 13, weight: "bold" } },
-                    grid:   {
+                    type: "linear", min: xMin, max: xMax, position: "center",
+                    title: { display: true, text: "x", color: "#1e293b",
+                             font: { size: 13, weight: "bold" } },
+                    grid: {
                         color: function(ctx) {
                             return ctx.tick.value === 0 ? "#000" : "#e5e7eb";
                         },
@@ -512,9 +524,8 @@ function addGraph(data) {
                             return ctx.tick.value === 0 ? 2 : 1;
                         }
                     },
-                    ticks:  {
-                        color: "#374151",
-                        stepSize: xTickStep,
+                    ticks: {
+                        color: "#374151", stepSize: xTickStep,
                         font: { size: 11, family: "monospace" },
                         callback: function(val) {
                             return val === 0 ? "0" :
@@ -524,13 +535,10 @@ function addGraph(data) {
                     border: { display: true, color: "#111827", width: 2 }
                 },
                 y: {
-                    type:   "linear",
-                    min:    yMin,
-                    max:    yMax,
-                    position: "center",
-                    title:  { display: true, text: "y", color: "#1e293b",
-                              font: { size: 13, weight: "bold" } },
-                    grid:   {
+                    type: "linear", min: yMin, max: yMax, position: "center",
+                    title: { display: true, text: "y", color: "#1e293b",
+                             font: { size: 13, weight: "bold" } },
+                    grid: {
                         color: function(ctx) {
                             return ctx.tick.value === 0 ? "#000" : "#e5e7eb";
                         },
@@ -538,9 +546,8 @@ function addGraph(data) {
                             return ctx.tick.value === 0 ? 2 : 1;
                         }
                     },
-                    ticks:  {
-                        color: "#374151",
-                        stepSize: yTickStep,
+                    ticks: {
+                        color: "#374151", stepSize: yTickStep,
                         font: { size: 11, family: "monospace" },
                         callback: function(val) {
                             return val === 0 ? "0" :
