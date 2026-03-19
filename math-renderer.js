@@ -1,24 +1,18 @@
 // ============================================================
-// math-renderer.js — LaTeX Math Rendering for Math AI
-// Handles: KaTeX rendering, math detection, display math
-// Path 2: LaTeX Math Rendering
+// math-renderer.js — Path 7: Per-response speak button
 // ============================================================
 
-// ── WAIT FOR KATEX TO BE READY ────────────────────────────────
 function isKatexReady() {
-    return typeof window.renderMathInElement !== "undefined"
-        && typeof window.katex !== "undefined";
+    return typeof window.renderMathInElement !== "undefined" &&
+           typeof window.katex !== "undefined";
 }
 
-// ── RENDER ALL MATH IN AN ELEMENT ────────────────────────────
 function renderMathInEl(element) {
     if (!element) return;
     if (!isKatexReady()) {
-        // KaTeX not loaded yet — retry after short delay
-        setTimeout(() => renderMathInEl(element), 300);
+        setTimeout(function() { renderMathInEl(element); }, 300);
         return;
     }
-
     try {
         renderMathInElement(element, {
             delimiters: [
@@ -27,148 +21,105 @@ function renderMathInEl(element) {
                 { left: "$",  right: "$",  display: false },
                 { left: "\\(", right: "\\)", display: false }
             ],
-            throwOnError:    false,
-            errorColor:      "#ef4444",
-            strict:          false,
-            trust:           false,
-            output:          "html",
-            fleqn:           false  // centered display math
-        });
-    } catch (err) {
-        console.warn("KaTeX render error:", err);
-    }
-}
-
-// ── RENDER INLINE MATH STRING TO HTML STRING ──────────────────
-function renderInlineMath(expression) {
-    if (!isKatexReady()) return escapeHtml(expression);
-    try {
-        return katex.renderToString(expression, {
             throwOnError: false,
-            displayMode:  false,
+            errorColor:   "#ef4444",
+            strict:       false,
             output:       "html"
         });
     } catch (err) {
-        return escapeHtml(expression);
+        console.warn("KaTeX error:", err);
     }
 }
 
-// ── RENDER DISPLAY MATH STRING TO HTML STRING ─────────────────
-function renderDisplayMath(expression) {
-    if (!isKatexReady()) return `<div class="math-display-fallback">${escapeHtml(expression)}</div>`;
-    try {
-        return katex.renderToString(expression, {
-            throwOnError: false,
-            displayMode:  true,
-            output:       "html"
-        });
-    } catch (err) {
-        return `<div class="math-display-fallback">${escapeHtml(expression)}</div>`;
-    }
-}
+// ── ADD MATH + MARKDOWN + SPEAK BUTTON ───────────────────────
+function addMathMarkdownMessage(text, role) {
+    role = role || "assistant";
+    var container = document.getElementById("chatContainer");
+    if (!container) return null;
 
-// ── CHECK IF TEXT CONTAINS MATH ───────────────────────────────
-function containsMath(text) {
-    if (!text) return false;
-    return (
-        /\$\$[\s\S]+?\$\$/.test(text)   ||  // display math $$...$$
-        /\$[^$\n]+?\$/.test(text)        ||  // inline math $...$
-        /\\\[[\s\S]+?\\\]/.test(text)    ||  // display \[...\]
-        /\\\([\s\S]+?\\\)/.test(text)       // inline \(...\)
-    );
-}
+    var wrapper      = document.createElement("div");
+    wrapper.className = "message " + role + " markdown-message math-message";
 
-// ── ADD MATH + MARKDOWN MESSAGE ───────────────────────────────
-// This is the main function to display AI responses
-// It handles both Markdown AND LaTeX in the same message
-function addMathMarkdownMessage(text, role = "assistant") {
-    const container = document.getElementById("chatContainer");
-    if (!container) return;
-
-    const wrapper     = document.createElement("div");
-    wrapper.className = `message ${role} markdown-message math-message`;
-
-    // Step 1: Configure Marked
     if (typeof marked !== "undefined") {
-        marked.setOptions({
-            breaks:    true,
-            gfm:       true,
-            headerIds: false,
-            mangle:    false
-        });
+        marked.setOptions({ breaks: true, gfm: true, headerIds: false, mangle: false });
     }
 
-    // Step 2: Protect math blocks BEFORE markdown parsing
-    // Replace $$ and $ with placeholders so Marked does not eat them
-    const mathBlocks   = [];
-    let   processedText = text;
+    // Protect math before markdown parsing
+    var mathBlocks  = [];
+    var processed   = text;
 
-    // Protect display math $$...$$ first
-    processedText = processedText.replace(/\$\$([\s\S]+?)\$\$/g, (match) => {
-        const idx = mathBlocks.length;
+    processed = processed.replace(/\$\$([\s\S]+?)\$\$/g, function(match) {
+        var idx = mathBlocks.length;
         mathBlocks.push({ type: "display", content: match });
-        return `MATHBLOCK_${idx}_END`;
+        return "MATHBLOCK_" + idx + "_END";
     });
 
-    // Protect inline math $...$
-    processedText = processedText.replace(/\$([^$\n]+?)\$/g, (match) => {
-        const idx = mathBlocks.length;
+    processed = processed.replace(/\$([^$\n]+?)\$/g, function(match) {
+        var idx = mathBlocks.length;
         mathBlocks.push({ type: "inline", content: match });
-        return `MATHBLOCK_${idx}_END`;
+        return "MATHBLOCK_" + idx + "_END";
     });
 
-    // Step 3: Parse markdown
-    let html = processedText;
+    var html = processed;
     if (typeof marked !== "undefined") {
-        try {
-            html = marked.parse(processedText);
-        } catch (e) {
-            html = processedText;
-        }
+        try { html = marked.parse(processed); } catch (e) { html = processed; }
     }
 
-    // Step 4: Sanitize with DOMPurify
     if (typeof DOMPurify !== "undefined") {
         html = DOMPurify.sanitize(html, {
             ALLOWED_TAGS: [
-                "p", "br", "strong", "em", "b", "i", "u",
-                "h1", "h2", "h3", "h4", "h5", "h6",
-                "ul", "ol", "li",
-                "blockquote", "code", "pre",
-                "hr", "table", "thead", "tbody", "tr", "th", "td",
-                "span", "div", "sup", "sub"
+                "p","br","strong","em","b","i","u",
+                "h1","h2","h3","h4","h5","h6",
+                "ul","ol","li","blockquote","code","pre",
+                "hr","table","thead","tbody","tr","th","td",
+                "span","div","sup","sub"
             ],
-            ALLOWED_ATTR: ["class", "style"]
+            ALLOWED_ATTR: ["class","style"]
         });
     }
 
-    // Step 5: Restore math blocks back into HTML
-    mathBlocks.forEach((block, idx) => {
-        html = html.replace(`MATHBLOCK_${idx}_END`, block.content);
+    mathBlocks.forEach(function(block, idx) {
+        html = html.replace("MATHBLOCK_" + idx + "_END", block.content);
     });
 
-    // Set inner HTML
     wrapper.innerHTML = html;
 
-    // Step 6: Render all math with KaTeX
+    // ── Add per-response speak button ─────────────────────────
+    if (role === "assistant") {
+        var speakBtn       = document.createElement("button");
+        speakBtn.className = "response-speak-btn";
+        speakBtn.title     = "Listen to this answer";
+        speakBtn.innerHTML = "🔊";
+
+        // Capture the text for this specific message
+        var responseText   = text;
+
+        speakBtn.onclick   = function() {
+            speakResponse(responseText, speakBtn);
+        };
+
+        wrapper.appendChild(speakBtn);
+    }
+
     container.appendChild(wrapper);
+
+    // Render KaTeX
     renderMathInEl(wrapper);
 
     container.scrollTop = container.scrollHeight;
     return wrapper;
 }
 
-// ── RENDER MATH IN ALL EXISTING MESSAGES ─────────────────────
-// Called after KaTeX fully loads on the page
+// ── RENDER ALL MATH ON PAGE ───────────────────────────────────
 function renderAllMathInPage() {
-    document.querySelectorAll(".math-message, .markdown-message").forEach(el => {
-        renderMathInEl(el);
-    });
+    var els = document.querySelectorAll(".math-message, .markdown-message");
+    for (var i = 0; i < els.length; i++) {
+        renderMathInEl(els[i]);
+    }
 }
 
-// ── ESCAPE HTML HELPER ────────────────────────────────────────
 function escapeHtml(text) {
-    const div = document.createElement("div");
+    var div = document.createElement("div");
     div.appendChild(document.createTextNode(text || ""));
     return div.innerHTML;
 }
