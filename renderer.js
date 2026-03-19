@@ -1,111 +1,88 @@
 // ============================================================
-// renderer.js — Message rendering for Math AI Assistant
-// Path 5 fix: Better image handling with S3 + base64 fallback
+// renderer.js — Path 7: Per-response speak button added
 // ============================================================
 
 function configureMarked() {
     if (typeof marked === "undefined") return;
-    marked.setOptions({
-        breaks:    true,
-        gfm:       true,
-        headerIds: false,
-        mangle:    false
-    });
+    marked.setOptions({ breaks: true, gfm: true, headerIds: false, mangle: false });
 }
 
 // ── ADD USER MESSAGE ─────────────────────────────────────────
 function addUserMessage(text) {
-    const container = document.getElementById("chatContainer");
+    var container = document.getElementById("chatContainer");
     if (!container) return;
-
-    const div     = document.createElement("div");
+    var div       = document.createElement("div");
     div.className = "message user";
     div.innerText = text;
-
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
 }
 
 // ── ADD PLAIN MESSAGE ─────────────────────────────────────────
 function addMessage(text, role) {
-    const container = document.getElementById("chatContainer");
+    var container = document.getElementById("chatContainer");
     if (!container) return;
-
-    const div            = document.createElement("div");
-    div.className        = "message " + role;
+    var div            = document.createElement("div");
+    div.className      = "message " + (role || "assistant");
     div.style.whiteSpace = "pre-line";
-    div.innerText        = text;
-
+    div.innerText      = text;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
 }
 
 // ── ADD MARKDOWN MESSAGE ──────────────────────────────────────
-function addMarkdownMessage(text, role = "assistant") {
-    return addMathMarkdownMessage(text, role);
+function addMarkdownMessage(text, role) {
+    return addMathMarkdownMessage(text, role || "assistant");
 }
 
-// ── ADD IMAGE TO CHAT — FIXED ─────────────────────────────────
-function addImageToChat(dataUrl, s3Url = null) {
-    const container = document.getElementById("chatContainer");
+// ── ADD IMAGE TO CHAT ─────────────────────────────────────────
+function addImageToChat(dataUrl, s3Url) {
+    var container = document.getElementById("chatContainer");
     if (!container) return;
 
-    const wrapper     = document.createElement("div");
+    var wrapper      = document.createElement("div");
     wrapper.className = "message assistant image-message";
 
-    const img         = document.createElement("img");
-    img.alt           = "Generated image";
-    img.className     = "chat-image";
-    img.title         = "Click to enlarge";
+    var img          = document.createElement("img");
+    img.alt          = "Generated image";
+    img.className    = "chat-image";
+    img.title        = "Click to enlarge";
 
-    // ── Smart URL strategy ────────────────────────────────────
-    // Always try base64 data URL first (works immediately)
-    // Fall back to S3 URL if data URL not available
-    // Fall back to other if both fail
+    var primary      = dataUrl || s3Url || "";
+    var fallback     = (dataUrl && s3Url && dataUrl !== s3Url) ? s3Url : null;
+    var attempts     = 0;
 
-    let primaryUrl   = dataUrl || s3Url || "";
-    let fallbackUrl  = (dataUrl && s3Url && dataUrl !== s3Url) ? s3Url : null;
-    let attemptCount = 0;
+    img.src = primary;
 
-    img.src = primaryUrl;
-
-    img.onerror = () => {
-        attemptCount++;
-        if (attemptCount === 1 && fallbackUrl) {
-            console.log("Primary image URL failed, trying fallback:", fallbackUrl);
-            img.src = fallbackUrl;
-        } else if (attemptCount === 1 && s3Url && img.src !== s3Url) {
-            console.log("Trying S3 URL:", s3Url);
+    img.onerror = function() {
+        attempts++;
+        if (attempts === 1 && fallback) {
+            img.src = fallback;
+        } else if (attempts === 1 && s3Url && img.src !== s3Url) {
             img.src = s3Url;
         } else {
-            console.error("All image URLs failed");
-            wrapper.innerHTML = `
-                <div class="image-error">
-                    <span>🖼️</span>
-                    <span>Image could not be loaded</span>
-                    ${s3Url ? `<a href="${s3Url}" target="_blank" class="image-link">Open in new tab</a>` : ""}
-                </div>`;
+            wrapper.innerHTML =
+                "<div class='image-error'>" +
+                    "<span>🖼️</span>" +
+                    "<span>Image could not be loaded</span>" +
+                    (s3Url ? "<a href='" + s3Url + "' target='_blank' class='image-link'>Open in new tab</a>" : "") +
+                "</div>";
         }
     };
 
-    img.onload = () => {
-        console.log("Image loaded successfully from:", img.src.substring(0, 50));
-    };
-
-    img.onclick = () => {
-        const url = img.src || s3Url || dataUrl;
+    img.onclick = function() {
+        var url = img.src || s3Url || dataUrl;
         if (url) window.open(url, "_blank");
     };
 
     wrapper.appendChild(img);
 
-    // Download button
-    const downloadBtn     = document.createElement("button");
+    var downloadBtn      = document.createElement("button");
     downloadBtn.className = "image-download-btn";
     downloadBtn.innerText = "⬇ Download";
-    downloadBtn.onclick   = () => {
-        const a    = document.createElement("a");
-        a.href     = img.src || s3Url || dataUrl;
+    downloadBtn.onclick   = function() {
+        var a    = document.createElement("a");
+        a.href   = img.src || s3Url || dataUrl;
         a.download = "math-ai-image.png";
         a.click();
     };
@@ -113,108 +90,95 @@ function addImageToChat(dataUrl, s3Url = null) {
 
     container.appendChild(wrapper);
     container.scrollTop = container.scrollHeight;
-
     return wrapper;
 }
 
-// ── SHOW TYPING INDICATOR ─────────────────────────────────────
+// ── SHOW TYPING ───────────────────────────────────────────────
 function showTyping() {
-    const container = document.getElementById("chatContainer");
+    var container = document.getElementById("chatContainer");
     if (!container) return;
-
     removeTyping();
-
-    const el     = document.createElement("div");
+    var el       = document.createElement("div");
     el.id        = "typing";
     el.className = "message assistant typing-msg";
-    el.innerHTML = `
-        <div class="typing-dots">
-            <span class="dot"></span>
-            <span class="dot"></span>
-            <span class="dot"></span>
-        </div>
-        <span class="typing-label">Math AI is thinking...</span>
-    `;
-
+    el.innerHTML =
+        "<div class='typing-dots'>" +
+            "<span class='dot'></span>" +
+            "<span class='dot'></span>" +
+            "<span class='dot'></span>" +
+        "</div>" +
+        "<span class='typing-label'>Math AI is thinking...</span>";
     container.appendChild(el);
     container.scrollTop = container.scrollHeight;
 }
 
-// ── REMOVE TYPING INDICATOR ───────────────────────────────────
+// ── REMOVE TYPING ─────────────────────────────────────────────
 function removeTyping() {
-    const el = document.getElementById("typing");
+    var el = document.getElementById("typing");
     if (el) el.remove();
 }
 
 // ── CREATE GRAPH WRAPPER ──────────────────────────────────────
 function createGraphWrapper(label, expression) {
-    const container = document.getElementById("chatContainer");
+    var container = document.getElementById("chatContainer");
     if (!container) return null;
 
-    const wrapper      = document.createElement("div");
-    wrapper.className  = "message assistant graph-wrapper";
+    var wrapper       = document.createElement("div");
+    wrapper.className = "message assistant graph-wrapper";
 
-    const titleBar     = document.createElement("div");
+    var titleBar       = document.createElement("div");
     titleBar.className = "graph-title-bar";
-    titleBar.innerHTML = `
-        <span class="graph-icon">📈</span>
-        <span class="graph-title">${escapeHtml(label || "Graph")}</span>
-    `;
+    titleBar.innerHTML =
+        "<span class='graph-icon'>📈</span>" +
+        "<span class='graph-title'>" + escapeHtml(label || "Graph") + "</span>";
     wrapper.appendChild(titleBar);
 
-    const canvasBox     = document.createElement("div");
+    var canvasBox       = document.createElement("div");
     canvasBox.className = "graph-canvas-box";
-    const canvas        = document.createElement("canvas");
+    var canvas          = document.createElement("canvas");
     canvasBox.appendChild(canvas);
     wrapper.appendChild(canvasBox);
 
-    const footer      = document.createElement("div");
-    footer.className  = "graph-footer";
-    footer.innerText  = `f(x) = ${expression || label}`;
+    var footer      = document.createElement("div");
+    footer.className = "graph-footer";
+    footer.innerText = "f(x) = " + (expression || label);
     wrapper.appendChild(footer);
 
     container.appendChild(wrapper);
     container.scrollTop = container.scrollHeight;
-
     return canvas;
 }
 
 // ── WELCOME MESSAGE ───────────────────────────────────────────
 function showWelcomeMessage() {
-    const welcomeText = `# Welcome to Math AI Assistant! 🎓
-
-Hello! I am your personal math tutor, built for **HighupWeb Academy, Cameroon**.
-
-## What I can help you with:
-- **Algebra** — equations, inequalities, polynomials
-- **Geometry** — shapes, area, volume, angles
-- **Trigonometry** — $\\sin$, $\\cos$, $\\tan$, identities
-- **Calculus** — derivatives, integrals, limits
-- **Statistics** — probability, mean, median, mode
-
----
-
-### Example math I can render:
-The quadratic formula: $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$
-
-Pythagorean theorem: $a^2 + b^2 = c^2$
-
----
-
-### How I work:
-1. I start from the **basics** of any topic
-2. I explain **why** each step is done
-3. I ask if you understand before moving on
-4. I verify every answer for accuracy ✅
-
-**Go ahead — ask me any math question!** 🚀`;
+    var welcomeText =
+        "# Welcome to Math AI Assistant! 🎓\n\n" +
+        "Hello! I am your personal math tutor, built for **HighupWeb Academy, Cameroon**.\n\n" +
+        "## What I can help you with:\n" +
+        "- **Algebra** — equations, inequalities, polynomials\n" +
+        "- **Geometry** — shapes, area, volume, angles\n" +
+        "- **Trigonometry** — $\\sin$, $\\cos$, $\\tan$, identities\n" +
+        "- **Calculus** — derivatives, integrals, limits\n" +
+        "- **Statistics** — probability, mean, median, mode\n\n" +
+        "---\n\n" +
+        "### Example math I can render:\n" +
+        "The quadratic formula: $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$\n\n" +
+        "Pythagorean theorem: $a^2 + b^2 = c^2$\n\n" +
+        "---\n\n" +
+        "### How I work:\n" +
+        "1. I start from the **basics** of any topic\n" +
+        "2. I explain **why** each step is done\n" +
+        "3. I ask if you understand before moving on\n" +
+        "4. I verify every answer for accuracy ✅\n" +
+        "5. 🎤 You can **speak** your questions using the mic button\n\n" +
+        "**Go ahead — ask me any math question!** 🚀";
 
     addMathMarkdownMessage(welcomeText);
 }
 
 // ── ESCAPE HTML ───────────────────────────────────────────────
 function escapeHtml(text) {
-    const div = document.createElement("div");
+    var div = document.createElement("div");
     div.appendChild(document.createTextNode(text || ""));
     return div.innerHTML;
 }
