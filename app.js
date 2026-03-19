@@ -1,21 +1,22 @@
-// ============================================================
-// app.js — Math AI Assistant — Path 6 Production
+ // ============================================================
+// app.js — Math AI Assistant — Path 7
+// Path 7: Voice input connected — mic button fully working
 // ============================================================
 
-const CHAT_API     = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
-const GRAPH_API    = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/graph";
-const IMAGE_API    = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/image";
-const SESSIONS_API = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/sessions";
-const HISTORY_API  = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/history";
-const VERIFY_API   = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/verify";
+var CHAT_API     = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/chat";
+var GRAPH_API    = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/graph";
+var IMAGE_API    = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/image";
+var SESSIONS_API = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/sessions";
+var HISTORY_API  = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/history";
+var VERIFY_API   = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/verify";
 
-let sessionId = localStorage.getItem("sessionId") || generateSessionId();
+var sessionId = localStorage.getItem("sessionId") || generateSessionId();
 localStorage.setItem("sessionId", sessionId);
 
-window.addEventListener("load", async () => {
+window.addEventListener("load", function() {
     initConversation(sessionId);
     initVoice();
-    await loadSessions();
+    loadSessions();
     showWelcomeMessage();
 });
 
@@ -29,8 +30,9 @@ function startNewChat() {
     clearHistory();
     initConversation(sessionId);
     stopSpeaking();
+    stopListening();
 
-    const container = document.getElementById("chatContainer");
+    var container = document.getElementById("chatContainer");
     if (container) container.innerHTML = "";
 
     document.querySelectorAll(".chat-item").forEach(function(el) {
@@ -40,23 +42,22 @@ function startNewChat() {
     hideQuickReplies();
     showWelcomeMessage();
 
-    // Speak new chat greeting
     if (VoiceState.userInteracted) {
         setTimeout(function() {
-            speakText("New chat started! I am ready. Ask me any math question.");
+            speakText("New chat started. I am ready. Ask me any math question by typing or using the microphone.");
         }, 400);
     }
 }
 
 async function loadSessions() {
-    const list = document.getElementById("chatList");
+    var list = document.getElementById("chatList");
     if (!list) return;
     try {
         list.innerHTML = "<li class='loading-chats'>Loading chats...</li>";
-        const res      = await fetch(SESSIONS_API);
-        const text     = await res.text();
-        const data     = JSON.parse(text);
-        const sessions = data.sessions || [];
+        var res        = await fetch(SESSIONS_API);
+        var text       = await res.text();
+        var data       = JSON.parse(text);
+        var sessions   = data.sessions || [];
         list.innerHTML = "";
 
         if (sessions.length === 0) {
@@ -65,12 +66,12 @@ async function loadSessions() {
         }
 
         sessions.forEach(function(session) {
-            const li       = document.createElement("li");
+            var li       = document.createElement("li");
             li.className   = "chat-item";
             li.dataset.sid = session.sessionId;
             if (session.sessionId === sessionId) li.classList.add("active-chat");
 
-            const date = session.date
+            var date = session.date
                 ? new Date(Number(session.date)).toLocaleDateString("en-US", { month: "short", day: "numeric" })
                 : "";
 
@@ -99,29 +100,30 @@ async function loadHistory(sid, clickedEl) {
         clearHistory();
         initConversation(sid);
         stopSpeaking();
+        stopListening();
 
         document.querySelectorAll(".chat-item").forEach(function(el) {
             el.classList.remove("active-chat");
         });
         if (clickedEl) clickedEl.classList.add("active-chat");
 
-        const container = document.getElementById("chatContainer");
+        var container = document.getElementById("chatContainer");
         if (container) container.innerHTML = "";
         hideQuickReplies();
         addMathMarkdownMessage("Loading chat history...");
 
-        const res  = await fetch(HISTORY_API + "?sessionId=" + encodeURIComponent(sid));
-        const data = await res.json();
+        var res  = await fetch(HISTORY_API + "?sessionId=" + encodeURIComponent(sid));
+        var data = await res.json();
         if (container) container.innerHTML = "";
 
-        const messages = data.messages || [];
+        var messages = data.messages || [];
         if (messages.length === 0) {
             addMathMarkdownMessage("No messages found in this chat.");
             return;
         }
 
-        for (let i = 0; i < messages.length; i++) {
-            const msg = messages[i];
+        for (var i = 0; i < messages.length; i++) {
+            var msg = messages[i];
             if (!msg.text && !msg.s3_url && !msg.graph_data) continue;
 
             if (msg.role === "user") {
@@ -147,7 +149,7 @@ async function loadHistory(sid, clickedEl) {
             }
         }
 
-        const cont = document.getElementById("chatContainer");
+        var cont = document.getElementById("chatContainer");
         if (cont) cont.scrollTop = cont.scrollHeight;
 
     } catch (err) {
@@ -157,31 +159,35 @@ async function loadHistory(sid, clickedEl) {
 }
 
 async function sendMessage() {
-    const input = document.getElementById("messageInput");
+    var input = document.getElementById("messageInput");
     if (!input) return;
-    const message = input.value.trim();
+    var message = input.value.trim();
     if (!message) return;
 
-    // Mark user as interacted — enables voice
+    // Mark user as interacted
     if (!VoiceState.userInteracted) {
         VoiceState.userInteracted = true;
         dismissInteractionPrompt();
     }
 
+    // Stop listening if active
+    if (RecognitionState.active) stopListening();
+
     stopSpeaking();
     addUserMessage(message);
-    input.value = "";
+    input.value       = "";
+    input.placeholder = "Ask any math question...";
     hideQuickReplies();
     showTyping();
     detectTopic(message);
 
-    const isConfused   = isConfusionMessage(message);
-    const isUnderstood = isUnderstandingMessage(message);
+    var isConfused   = isConfusionMessage(message);
+    var isUnderstood = isUnderstandingMessage(message);
     if (isConfused)   { recordClarificationRequest(); showClarificationIndicator(); }
     if (isUnderstood) { recordUnderstanding(); }
 
-    const isGraphRequest = /\b(graph|plot|chart|sketch)\b/i.test(message);
-    const isImageRequest =
+    var isGraphRequest = /\b(graph|plot|chart|sketch)\b/i.test(message);
+    var isImageRequest =
         /^(draw|create|sketch|show)\s.*(square|circle|triangle|hexagon|polygon|rectangle|pentagon|octagon|shape)/i.test(message) ||
         /\b(imagen|generate image|ai image|ai picture)\b/i.test(message);
 
@@ -202,49 +208,48 @@ async function sendMessage() {
 }
 
 async function handleChat(message) {
-    const contextAdd = getContextualInstruction();
-    const history    = getFormattedHistory();
+    var contextAdd = getContextualInstruction();
+    var history    = getFormattedHistory();
 
-    const res = await fetch(CHAT_API, {
+    var res = await fetch(CHAT_API, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ message: message, sessionId: sessionId, history: history, contextAdd: contextAdd })
     });
 
-    let data = await res.json();
+    var data = await res.json();
     if (typeof data.body === "string") data = JSON.parse(data.body);
 
     sessionId = data.sessionId || sessionId;
     localStorage.setItem("sessionId", sessionId);
 
-    const reply = data.reply || "No response received.";
+    var reply = data.reply || "No response received.";
     addToHistory("user",      message);
     addToHistory("assistant", reply);
 
     removeTyping();
     removeClarificationIndicator();
 
-    const msgWrapper = addMathMarkdownMessage(reply);
+    var msgWrapper = addMathMarkdownMessage(reply);
     setTimeout(showQuickReplies, 400);
 
-    // Speak the reply
+    // Speak reply
     setTimeout(function() {
         speakText(reply);
     }, 200);
 
-    // Verify in background
     verifyAndShowBadge(message, reply, msgWrapper);
 }
 
 async function verifyAndShowBadge(question, aiAnswer, messageWrapper) {
     try {
         if (!messageWrapper) return;
-        const spinner     = document.createElement("div");
+        var spinner     = document.createElement("div");
         spinner.className = "verify-spinner";
         spinner.innerHTML = "<span class='verify-dot'></span> Verifying answer...";
         messageWrapper.appendChild(spinner);
 
-        const res = await fetch(VERIFY_API, {
+        var res = await fetch(VERIFY_API, {
             method:  "POST",
             headers: { "Content-Type": "application/json" },
             body:    JSON.stringify({
@@ -254,8 +259,8 @@ async function verifyAndShowBadge(question, aiAnswer, messageWrapper) {
             })
         });
 
-        const raw    = await res.json();
-        let result   = raw;
+        var raw    = await res.json();
+        var result = raw;
         if (typeof result.body === "string") result = JSON.parse(result.body);
         spinner.remove();
         if (result && result.badge) addVerificationBadge(messageWrapper, result);
@@ -267,7 +272,7 @@ async function verifyAndShowBadge(question, aiAnswer, messageWrapper) {
 
 function addVerificationBadge(messageWrapper, result) {
     if (!messageWrapper || !result) return;
-    const badge     = document.createElement("div");
+    var badge     = document.createElement("div");
     badge.className = "verification-badge " + (result.badge_class || "badge-info");
     badge.innerHTML =
         "<span class='badge-icon'>" + (result.badge || "ℹ️") + "</span>" +
@@ -282,19 +287,19 @@ function addVerificationBadge(messageWrapper, result) {
 }
 
 function toggleBadgeDetails(btn) {
-    const details = btn.nextElementSibling;
+    var details = btn.nextElementSibling;
     if (!details) return;
     details.classList.toggle("hidden");
     btn.textContent = details.classList.contains("hidden") ? "▼" : "▲";
 }
 
 async function handleGraph(message) {
-    const res = await fetch(GRAPH_API, {
+    var res = await fetch(GRAPH_API, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ expression: message, sessionId: sessionId })
     });
-    let data = await res.json();
+    var data = await res.json();
     if (typeof data.body === "string") data = JSON.parse(data.body);
     removeTyping();
 
@@ -303,7 +308,7 @@ async function handleGraph(message) {
         addToHistory("assistant", "Graph plotted: " + (data.label || message));
         addGraph(data);
         setTimeout(function() {
-            speakText("I have plotted the graph of " + (data.label || message) + ". You can see the curve on your screen. Do you have any questions about what you see?");
+            speakText("I have plotted the graph of " + (data.label || message) + ". You can see the curve on your screen. Do you have any questions about it?");
         }, 600);
     } else {
         addMathMarkdownMessage("Could not generate graph.\n\n**Try these:**\n- plot x squared\n- graph sin(x)\n- plot x cubed minus 2x");
@@ -311,13 +316,13 @@ async function handleGraph(message) {
 }
 
 async function handleImage(message) {
-    const msg = message.toLowerCase();
-    let body  = {};
+    var msg  = message.toLowerCase();
+    var body = {};
 
     if (/imagen|generate image|ai image|ai picture/i.test(msg)) {
         body = { action: "imagen_ai", prompt: message, sessionId: sessionId };
     } else {
-        let shape = "square";
+        var shape = "square";
         if      (/circle/.test(msg))    shape = "circle";
         else if (/triangle/.test(msg))  shape = "triangle";
         else if (/hexagon/.test(msg))   shape = "hexagon";
@@ -326,21 +331,21 @@ async function handleImage(message) {
         else if (/octagon/.test(msg))   shape = "octagon";
         else if (/polygon/.test(msg))   shape = "polygon";
 
-        const sidesMatch = msg.match(/(\d+)\s*side/);
-        const sides      = sidesMatch ? parseInt(sidesMatch[1]) : 6;
-        const sizeMatch  = msg.match(/size\s*(\d+)|(\d+)\s*px/);
-        const size       = sizeMatch ? parseInt(sizeMatch[1] || sizeMatch[2]) : 150;
+        var sidesMatch = msg.match(/(\d+)\s*side/);
+        var sides      = sidesMatch ? parseInt(sidesMatch[1]) : 6;
+        var sizeMatch  = msg.match(/size\s*(\d+)|(\d+)\s*px/);
+        var size       = sizeMatch ? parseInt(sizeMatch[1] || sizeMatch[2]) : 150;
 
-        const colorList = ["red","blue","green","yellow","purple","orange","pink","cyan","royalblue","gold","white"];
-        let color       = "royalblue";
-        for (let i = 0; i < colorList.length; i++) {
-            if (msg.includes(colorList[i])) { color = colorList[i]; break; }
+        var colorList = ["red","blue","green","yellow","purple","orange","pink","cyan","royalblue","gold","white"];
+        var color     = "royalblue";
+        for (var ci = 0; ci < colorList.length; ci++) {
+            if (msg.includes(colorList[ci])) { color = colorList[ci]; break; }
         }
 
         body = { action: "draw_shape", shape: shape, sides: sides, size: size, color: color, outline: "white", label: message, sessionId: sessionId };
     }
 
-    const res = await fetch(IMAGE_API, {
+    var res = await fetch(IMAGE_API, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify(body)
@@ -348,25 +353,23 @@ async function handleImage(message) {
     removeTyping();
 
     try {
-        let data = JSON.parse(await res.text());
+        var data = JSON.parse(await res.text());
         if (typeof data.body === "string") data = JSON.parse(data.body);
 
-        let displayUrl = null;
-        let s3Url      = data.s3_url || null;
+        var displayUrl = null;
+        var s3Url      = data.s3_url || null;
 
-        if (data.data_url)                   displayUrl = data.data_url;
-        else if (data.image)                 displayUrl = "data:image/png;base64," + data.image;
-        else if (data.images && data.images[0]) {
-            displayUrl = data.images[0].data_url;
-            s3Url      = data.images[0].s3_url || s3Url;
-        } else if (s3Url)                    displayUrl = s3Url;
+        if (data.data_url)                        displayUrl = data.data_url;
+        else if (data.image)                      displayUrl = "data:image/png;base64," + data.image;
+        else if (data.images && data.images[0]) { displayUrl = data.images[0].data_url; s3Url = data.images[0].s3_url || s3Url; }
+        else if (s3Url)                           displayUrl = s3Url;
 
         if (displayUrl) {
             addImageToChat(displayUrl, s3Url);
             addToHistory("user",      message);
             addToHistory("assistant", "[Image generated]");
             setTimeout(function() {
-                speakText("There you go! I have drawn the " + (body.shape || "image") + " for you. You can see it on your screen now.");
+                speakText("There you go! I have drawn the " + (body.shape || "image") + " for you. You can see it on your screen.");
             }, 500);
         } else {
             addMathMarkdownMessage("Could not generate image: " + (data.error || "Unknown error"));
@@ -378,76 +381,55 @@ async function handleImage(message) {
 }
 
 function addGraph(data) {
-    const canvas = createGraphWrapper(data.label, data.expression);
+    var canvas = createGraphWrapper(data.label, data.expression);
     if (!canvas) return;
 
-    const points = [];
-    const xArr   = data.x || [];
-    const yArr   = data.y || [];
+    var points = [];
+    var xArr   = data.x || [];
+    var yArr   = data.y || [];
 
-    for (let i = 0; i < xArr.length; i++) {
-        const x = Number(xArr[i]);
-        const y = yArr[i];
+    for (var i = 0; i < xArr.length; i++) {
+        var x = Number(xArr[i]);
+        var y = yArr[i];
         if (y !== null && y !== undefined && isFinite(Number(y)) && isFinite(x)) {
             points.push({ x: x, y: Number(y) });
         }
     }
     points.sort(function(a, b) { return a.x - b.x; });
 
-    if (points.length === 0) {
-        addMathMarkdownMessage("No valid data points to plot.");
-        return;
-    }
+    if (points.length === 0) { addMathMarkdownMessage("No valid data points to plot."); return; }
 
-    const allY       = points.map(function(p) { return p.y; });
-    const minY       = Math.min.apply(null, allY);
-    const maxY       = Math.max.apply(null, allY);
-    const yRange     = maxY - minY || 4;
-    const yPad       = yRange * 0.20;
-    const xMin       = Number(data.x_min !== undefined ? data.x_min : -5);
-    const xMax       = Number(data.x_max !== undefined ? data.x_max :  5);
-    let   yMin       = Number(data.y_min !== undefined ? data.y_min : minY - yPad);
-    let   yMax       = Number(data.y_max !== undefined ? data.y_max : maxY + yPad);
+    var allY       = points.map(function(p) { return p.y; });
+    var minY       = Math.min.apply(null, allY);
+    var maxY       = Math.max.apply(null, allY);
+    var yRange     = maxY - minY || 4;
+    var yPad       = yRange * 0.20;
+    var xMin       = Number(data.x_min !== undefined ? data.x_min : -5);
+    var xMax       = Number(data.x_max !== undefined ? data.x_max :  5);
+    var yMin       = Number(data.y_min !== undefined ? data.y_min : minY - yPad);
+    var yMax       = Number(data.y_max !== undefined ? data.y_max : maxY + yPad);
 
     if (yMin > 0) yMin = -(yMax * 0.15);
     if (yMax < 0) yMax = -(yMin * 0.15);
 
-    const xRange2    = xMax - xMin;
-    const xTickStep  = xRange2 <= 4 ? 0.5 : xRange2 <= 8 ? 1 : xRange2 <= 16 ? 2 : 5;
-    const yDispRange = yMax - yMin;
-    const yTickStep  = yDispRange <= 4 ? 0.5 : yDispRange <= 8 ? 1 : yDispRange <= 16 ? 2 : yDispRange <= 40 ? 5 : 10;
+    var xRange2    = xMax - xMin;
+    var xTickStep  = xRange2 <= 4 ? 0.5 : xRange2 <= 8 ? 1 : xRange2 <= 16 ? 2 : 5;
+    var yDispRange = yMax - yMin;
+    var yTickStep  = yDispRange <= 4 ? 0.5 : yDispRange <= 8 ? 1 : yDispRange <= 16 ? 2 : yDispRange <= 40 ? 5 : 10;
 
     new Chart(canvas, {
         type: "scatter",
-        data: {
-            datasets: [{
-                data:             points,
-                showLine:         true,
-                borderColor:      "#2563eb",
-                borderWidth:      2.5,
-                pointRadius:      0,
-                pointHoverRadius: 5,
-                tension:          0,
-                fill:             false
-            }]
-        },
+        data: { datasets: [{ data: points, showLine: true, borderColor: "#2563eb", borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, tension: 0, fill: false }] },
         options: {
-            responsive:          true,
-            maintainAspectRatio: false,
-            animation:           { duration: 700 },
+            responsive: true, maintainAspectRatio: false,
+            animation: { duration: 700 },
             plugins: {
-                legend:  { display: false },
+                legend: { display: false },
                 tooltip: {
-                    backgroundColor: "#1e3a5f",
-                    titleColor:      "#fff",
-                    bodyColor:       "#93c5fd",
-                    padding:         10,
-                    cornerRadius:    8,
+                    backgroundColor: "#1e3a5f", titleColor: "#fff", bodyColor: "#93c5fd", padding: 10, cornerRadius: 8,
                     callbacks: {
                         title: function() { return data.label || "f(x)"; },
-                        label: function(ctx) {
-                            return "x = " + ctx.parsed.x.toFixed(2) + ",  y = " + ctx.parsed.y.toFixed(3);
-                        }
+                        label: function(ctx) { return "x = " + ctx.parsed.x.toFixed(2) + ",  y = " + ctx.parsed.y.toFixed(3); }
                     }
                 }
             },
@@ -472,41 +454,41 @@ function addGraph(data) {
 }
 
 function showClarificationIndicator() {
-    const app = document.querySelector(".app");
+    var app = document.querySelector(".app");
     if (!app) return;
     removeClarificationIndicator();
-    const banner     = document.createElement("div");
-    banner.id        = "clarificationBanner";
+    var banner     = document.createElement("div");
+    banner.id      = "clarificationBanner";
     banner.className = "clarification-banner";
     banner.innerHTML = "<span class='clarification-icon'>🔄</span><span>Re-explaining with a simpler approach...</span>";
-    const inputArea  = document.querySelector(".inputArea");
+    var inputArea  = document.querySelector(".inputArea");
     if (inputArea) app.insertBefore(banner, inputArea);
 }
 
 function removeClarificationIndicator() {
-    const el = document.getElementById("clarificationBanner");
+    var el = document.getElementById("clarificationBanner");
     if (el) el.remove();
 }
 
 function showQuickReplies() {
-    const el = document.getElementById("quickReplies");
+    var el = document.getElementById("quickReplies");
     if (el) el.classList.remove("hidden");
 }
 
 function hideQuickReplies() {
-    const el = document.getElementById("quickReplies");
+    var el = document.getElementById("quickReplies");
     if (el) el.classList.add("hidden");
 }
 
 function quickReply(text) {
-    const inp = document.getElementById("messageInput");
+    var inp = document.getElementById("messageInput");
     if (inp) inp.value = text;
     hideQuickReplies();
     sendMessage();
 }
 
 function escapeHtml(text) {
-    const div = document.createElement("div");
+    var div = document.createElement("div");
     div.appendChild(document.createTextNode(text || ""));
     return div.innerHTML;
 }
