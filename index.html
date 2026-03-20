@@ -28,28 +28,27 @@
       <ul id="chatList"></ul>
     </div>
 
-    <!-- ── TRUST PANEL ────────────────────────────────── -->
     <div class="trust-panel">
       <div class="trust-panel-title">🔬 Why Trust This AI?</div>
       <div class="trust-item">
         <span class="trust-icon">🧮</span>
-        <span class="trust-text">SymPy math engine computes exact answers before AI explains</span>
+        <span class="trust-text">SymPy engine computes exact symbolic answers</span>
+      </div>
+      <div class="trust-item">
+        <span class="trust-icon">W|A</span>
+        <span class="trust-text">Wolfram Alpha certifies complex problems</span>
       </div>
       <div class="trust-item">
         <span class="trust-icon">✅</span>
-        <span class="trust-text">Every answer verified for mathematical accuracy</span>
+        <span class="trust-text">Every answer triple-verified for accuracy</span>
       </div>
       <div class="trust-item">
         <span class="trust-icon">🤖</span>
-        <span class="trust-text">5 AI providers with 18 fallback models — never fails</span>
+        <span class="trust-text">5 AI providers — 18 fallback models</span>
       </div>
       <div class="trust-item">
         <span class="trust-icon">📚</span>
-        <span class="trust-text">Socratic teaching — explains WHY not just answers</span>
-      </div>
-      <div class="trust-item">
-        <span class="trust-icon">🔒</span>
-        <span class="trust-text">All answers backed by symbolic computation</span>
+        <span class="trust-text">Socratic teaching — explains WHY every step</span>
       </div>
     </div>
 
@@ -81,7 +80,7 @@
       <div class="topbar-right">
         <div class="engine-badge">
           <span class="engine-dot"></span>
-          <span>SymPy Engine Active</span>
+          <span>SymPy + Wolfram Active</span>
         </div>
         <span class="status-badge">🟢 Online</span>
       </div>
@@ -93,7 +92,7 @@
         <span class="trust-banner-icon">🔬</span>
         <div class="trust-banner-text">
           <strong>Mathematically Verified Answers</strong>
-          <span>Every response is computed by SymPy and Wolfram Alpha before AI explains — guaranteeing 100% accurate results</span>
+          <span>Every response computed by SymPy + Wolfram Alpha before AI explains — guaranteed 100% accurate</span>
         </div>
         <button class="trust-banner-close" onclick="closeTrustBanner()">✕</button>
       </div>
@@ -164,7 +163,7 @@
       <div class="inputArea">
         <button class="mic-btn" id="micBtn"
                 title="Click to speak your question"
-                onclick="toggleVoiceInput()">🎤</button>
+                onclick="if(typeof toggleVoiceInput==='function')toggleVoiceInput()">🎤</button>
         <input id="messageInput"
                placeholder="Ask any math question or tap 🎤 to speak..."
                autocomplete="off"/>
@@ -173,30 +172,24 @@
 
       <div class="input-hint">
         Try: "solve x² + 5x + 6 = 0" &bull; "plot sin(x)" &bull;
-        "factorise x² - 9" &bull; 🎤 speak your question
+        "factorise x² - 9" &bull; "differentiate x³" &bull; 🎤 speak
       </div>
     </div>
   </div>
 </div>
 
 <!-- ══════════════════════════════════════════════════════════ -->
-<!-- SCRIPTS — ORDER IS CRITICAL — DO NOT CHANGE THIS ORDER   -->
+<!-- SCRIPTS — ORDER IS CRITICAL — DO NOT CHANGE              -->
 <!-- ══════════════════════════════════════════════════════════ -->
-
-<!-- 1. External libraries first -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"
+        crossorigin="anonymous" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        crossorigin="anonymous" defer onload="onKatexLoaded()"></script>
 
-<!-- 2. KaTeX — deferred so it does not block -->
-<script
-  src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"
-  crossorigin="anonymous" defer></script>
-<script
-  src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
-  crossorigin="anonymous" defer onload="onKatexLoaded()"></script>
-
-<!-- 3. Our files — math-renderer MUST come before renderer -->
+<!-- Our files — math-renderer MUST be before renderer -->
 <script src="conversation.js"></script>
 <script src="voice.js"></script>
 <script src="math-renderer.js"></script>
@@ -204,14 +197,10 @@
 <script src="app.js"></script>
 
 <script>
-// ── KaTeX callback ────────────────────────────────────────────
 function onKatexLoaded() {
-    if (typeof renderAllMathInPage === "function") {
-        renderAllMathInPage();
-    }
+    if (typeof renderAllMathInPage === "function") renderAllMathInPage();
 }
 
-// ── THEME TOGGLE ──────────────────────────────────────────────
 (function() {
     var toggle = document.getElementById("themeToggle");
     var label  = document.getElementById("themeLabel");
@@ -240,7 +229,6 @@ function onKatexLoaded() {
     });
 })();
 
-// ── TRUST BANNER ──────────────────────────────────────────────
 function closeTrustBanner() {
     var banner = document.getElementById("trustBanner");
     if (banner) {
@@ -259,14 +247,11 @@ if (localStorage.getItem("trustBannerClosed")) {
     if (b) b.style.display = "none";
 }
 
-// ── SEND BUTTON ───────────────────────────────────────────────
 document.getElementById("sendBtn").addEventListener("click", function() {
     if (typeof sendMessage === "function") sendMessage();
 });
 
-// ── ENTER KEY ─────────────────────────────────────────────────
-document.getElementById("messageInput").addEventListener("keypress",
-function(e) {
+document.getElementById("messageInput").addEventListener("keypress", function(e) {
     if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         if (typeof sendMessage === "function") sendMessage();
