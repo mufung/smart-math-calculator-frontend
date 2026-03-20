@@ -28,35 +28,6 @@
       <ul id="chatList"></ul>
     </div>
 
-    <!-- ── TRUST PANEL ────────────────────────────────── -->
-    <div class="trust-panel">
-      <div class="trust-panel-title">⚡ Why Trust This AI?</div>
-      <div class="trust-item">
-        <span class="trust-icon">🔬</span>
-        <span class="trust-text">SymPy computes exact symbolic answers</span>
-      </div>
-      <div class="trust-item">
-        <span class="trust-icon">📐</span>
-        <span class="trust-text">SciPy confirms numerically</span>
-      </div>
-      <div class="trust-item">
-        <span class="trust-icon">🔢</span>
-        <span class="trust-text">NumPy handles matrices and linear algebra</span>
-      </div>
-      <div class="trust-item">
-        <span class="trust-icon">W|A</span>
-        <span class="trust-text">Wolfram Alpha certifies complex problems</span>
-      </div>
-      <div class="trust-item">
-        <span class="trust-icon">🤖</span>
-        <span class="trust-text">OpenAI verifies and explains beautifully</span>
-      </div>
-      <div class="trust-item">
-        <span class="trust-icon">✅</span>
-        <span class="trust-text">5 engines agree before answer reaches you</span>
-      </div>
-    </div>
-
     <nav>
       <ul>
         <li>📊 Analytics</li>
@@ -90,18 +61,6 @@
         <span class="status-badge">🟢 Online</span>
       </div>
     </header>
-
-    <!-- ── TRUST BANNER ───────────────────────────────── -->
-    <div class="trust-banner" id="trustBanner">
-      <div class="trust-banner-inner">
-        <span class="trust-banner-icon">⚡</span>
-        <div class="trust-banner-text">
-          <strong>Math Super Engine Active</strong>
-          <span>SymPy + SciPy + NumPy + Wolfram Alpha + OpenAI all verify every answer before you see it — guaranteed accuracy</span>
-        </div>
-        <button class="trust-banner-close" onclick="closeTrustBanner()">✕</button>
-      </div>
-    </div>
 
     <!-- ── VOICE BAR ──────────────────────────────────── -->
     <div class="voice-bar" id="voiceBar">
@@ -183,9 +142,7 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════ -->
-<!-- SCRIPTS — ORDER IS CRITICAL — DO NOT CHANGE              -->
-<!-- ══════════════════════════════════════════════════════════ -->
+<!-- SCRIPTS — ORDER IS CRITICAL -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
@@ -232,24 +189,6 @@ function onKatexLoaded() {
         }
     });
 })();
-
-function closeTrustBanner() {
-    var banner = document.getElementById("trustBanner");
-    if (banner) {
-        banner.style.maxHeight = "0";
-        banner.style.padding   = "0";
-        banner.style.opacity   = "0";
-        setTimeout(function() {
-            if (banner) banner.style.display = "none";
-        }, 400);
-    }
-    localStorage.setItem("trustBannerClosed", "1");
-}
-
-if (localStorage.getItem("trustBannerClosed")) {
-    var b = document.getElementById("trustBanner");
-    if (b) b.style.display = "none";
-}
 
 document.getElementById("sendBtn").addEventListener("click", function() {
     if (typeof sendMessage === "function") sendMessage();
