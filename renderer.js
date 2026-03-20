@@ -1,6 +1,6 @@
-// ============================================================
-// renderer.js — Message rendering for Math AI Assistant
-// Fixed: safe calls to addMathMarkdownMessage
+ // ============================================================
+// renderer.js — Message rendering
+// Safe wrappers — math-renderer.js must load first
 // ============================================================
 
 function configureMarked() {
@@ -13,56 +13,46 @@ function configureMarked() {
     });
 }
 
-// ── SAFE WRAPPER — calls addMathMarkdownMessage safely ────────
 function safeAddMathMarkdown(text, role) {
     role = role || "assistant";
     if (typeof addMathMarkdownMessage === "function") {
         return addMathMarkdownMessage(text, role);
     }
-    // Fallback if math-renderer not ready yet
     var container = document.getElementById("chatContainer");
     if (!container) return null;
     var div       = document.createElement("div");
     div.className = "message " + role + " markdown-message";
-    div.innerText = text;
+    div.innerText = text || "";
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
     return div;
 }
 
-// ── ADD USER MESSAGE ──────────────────────────────────────────
 function addUserMessage(text) {
     var container = document.getElementById("chatContainer");
     if (!container) return;
-
     var div       = document.createElement("div");
     div.className = "message user";
     div.innerText = text || "";
-
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
 }
 
-// ── ADD PLAIN MESSAGE ─────────────────────────────────────────
 function addMessage(text, role) {
     var container = document.getElementById("chatContainer");
     if (!container) return;
-
     var div            = document.createElement("div");
     div.className      = "message " + (role || "assistant");
     div.style.whiteSpace = "pre-line";
     div.innerText      = text || "";
-
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
 }
 
-// ── ADD MARKDOWN MESSAGE ──────────────────────────────────────
 function addMarkdownMessage(text, role) {
     return safeAddMathMarkdown(text, role || "assistant");
 }
 
-// ── ADD IMAGE TO CHAT ─────────────────────────────────────────
 function addImageToChat(dataUrl, s3Url) {
     var container = document.getElementById("chatContainer");
     if (!container) return null;
@@ -70,10 +60,10 @@ function addImageToChat(dataUrl, s3Url) {
     var wrapper      = document.createElement("div");
     wrapper.className = "message assistant image-message";
 
-    var img          = document.createElement("img");
-    img.alt          = "Generated image";
-    img.className    = "chat-image";
-    img.title        = "Click to enlarge";
+    var img       = document.createElement("img");
+    img.alt       = "Generated image";
+    img.className = "chat-image";
+    img.title     = "Click to enlarge";
 
     var primary  = dataUrl || s3Url || "";
     var fallback = (dataUrl && s3Url && dataUrl !== s3Url) ? s3Url : null;
@@ -112,7 +102,7 @@ function addImageToChat(dataUrl, s3Url) {
     downloadBtn.innerText = "⬇ Download";
     downloadBtn.onclick   = function() {
         var a      = document.createElement("a");
-        a.href     = img.src || s3Url || dataUrl;
+        a.href     = img.src || s3Url || dataUrl || "";
         a.download = "math-ai-image.png";
         a.click();
     };
@@ -123,13 +113,10 @@ function addImageToChat(dataUrl, s3Url) {
     return wrapper;
 }
 
-// ── SHOW TYPING ───────────────────────────────────────────────
 function showTyping() {
     var container = document.getElementById("chatContainer");
     if (!container) return;
-
     removeTyping();
-
     var el       = document.createElement("div");
     el.id        = "typing";
     el.className = "message assistant typing-msg";
@@ -140,18 +127,15 @@ function showTyping() {
             "<span class='dot'></span>" +
         "</div>" +
         "<span class='typing-label'>Math AI is thinking...</span>";
-
     container.appendChild(el);
     container.scrollTop = container.scrollHeight;
 }
 
-// ── REMOVE TYPING ─────────────────────────────────────────────
 function removeTyping() {
     var el = document.getElementById("typing");
     if (el) el.remove();
 }
 
-// ── CREATE GRAPH WRAPPER ──────────────────────────────────────
 function createGraphWrapper(label, expression) {
     var container = document.getElementById("chatContainer");
     if (!container) return null;
@@ -182,7 +166,6 @@ function createGraphWrapper(label, expression) {
     return canvas;
 }
 
-// ── WELCOME MESSAGE ───────────────────────────────────────────
 function showWelcomeMessage() {
     var welcomeText =
         "# Welcome to Math AI Assistant! 🎓\n\n" +
@@ -192,24 +175,26 @@ function showWelcomeMessage() {
         "- **Geometry** — shapes, area, volume, angles\n" +
         "- **Trigonometry** — $\\sin$, $\\cos$, $\\tan$, identities\n" +
         "- **Calculus** — derivatives, integrals, limits\n" +
-        "- **Statistics** — probability, mean, median, mode\n\n" +
+        "- **Statistics** — probability, mean, median, mode\n" +
+        "- **Differential Equations** — ODE, PDE, Laplace transforms\n" +
+        "- **Linear Algebra** — matrices, eigenvalues, vectors\n\n" +
         "---\n\n" +
         "### Example math I can render:\n" +
-        "The quadratic formula: $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$\n\n" +
+        "Quadratic formula: $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$\n\n" +
         "Pythagorean theorem: $a^2 + b^2 = c^2$\n\n" +
         "---\n\n" +
         "### How I work:\n" +
         "1. I start from the **basics** of any topic\n" +
         "2. I explain **why** each step is done\n" +
-        "3. I ask if you understand before moving on\n" +
-        "4. SymPy + Wolfram Alpha verify every answer ✅\n" +
-        "5. 🎤 You can **speak** your questions using the mic button\n\n" +
+        "3. 🔬 **SymPy** computes exact symbolic answers\n" +
+        "4. **W|A** Wolfram Alpha certifies complex problems\n" +
+        "5. ✅ Every answer triple-verified before you see it\n" +
+        "6. 🎤 Speak your questions using the mic button\n\n" +
         "**Go ahead — ask me any math question!** 🚀";
 
     safeAddMathMarkdown(welcomeText, "assistant");
 }
 
-// ── ESCAPE HTML ───────────────────────────────────────────────
 function escapeHtml(text) {
     var div = document.createElement("div");
     div.appendChild(document.createTextNode(text || ""));
