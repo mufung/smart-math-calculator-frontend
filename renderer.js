@@ -1,19 +1,44 @@
 // ============================================================
-// renderer.js — Path 7: Per-response speak button added
+// renderer.js — Message rendering for Math AI Assistant
+// Fixed: safe calls to addMathMarkdownMessage
 // ============================================================
 
 function configureMarked() {
     if (typeof marked === "undefined") return;
-    marked.setOptions({ breaks: true, gfm: true, headerIds: false, mangle: false });
+    marked.setOptions({
+        breaks:    true,
+        gfm:       true,
+        headerIds: false,
+        mangle:    false
+    });
 }
 
-// ── ADD USER MESSAGE ─────────────────────────────────────────
+// ── SAFE WRAPPER — calls addMathMarkdownMessage safely ────────
+function safeAddMathMarkdown(text, role) {
+    role = role || "assistant";
+    if (typeof addMathMarkdownMessage === "function") {
+        return addMathMarkdownMessage(text, role);
+    }
+    // Fallback if math-renderer not ready yet
+    var container = document.getElementById("chatContainer");
+    if (!container) return null;
+    var div       = document.createElement("div");
+    div.className = "message " + role + " markdown-message";
+    div.innerText = text;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    return div;
+}
+
+// ── ADD USER MESSAGE ──────────────────────────────────────────
 function addUserMessage(text) {
     var container = document.getElementById("chatContainer");
     if (!container) return;
+
     var div       = document.createElement("div");
     div.className = "message user";
-    div.innerText = text;
+    div.innerText = text || "";
+
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
 }
@@ -22,23 +47,25 @@ function addUserMessage(text) {
 function addMessage(text, role) {
     var container = document.getElementById("chatContainer");
     if (!container) return;
+
     var div            = document.createElement("div");
     div.className      = "message " + (role || "assistant");
     div.style.whiteSpace = "pre-line";
-    div.innerText      = text;
+    div.innerText      = text || "";
+
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
 }
 
 // ── ADD MARKDOWN MESSAGE ──────────────────────────────────────
 function addMarkdownMessage(text, role) {
-    return addMathMarkdownMessage(text, role || "assistant");
+    return safeAddMathMarkdown(text, role || "assistant");
 }
 
 // ── ADD IMAGE TO CHAT ─────────────────────────────────────────
 function addImageToChat(dataUrl, s3Url) {
     var container = document.getElementById("chatContainer");
-    if (!container) return;
+    if (!container) return null;
 
     var wrapper      = document.createElement("div");
     wrapper.className = "message assistant image-message";
@@ -48,9 +75,9 @@ function addImageToChat(dataUrl, s3Url) {
     img.className    = "chat-image";
     img.title        = "Click to enlarge";
 
-    var primary      = dataUrl || s3Url || "";
-    var fallback     = (dataUrl && s3Url && dataUrl !== s3Url) ? s3Url : null;
-    var attempts     = 0;
+    var primary  = dataUrl || s3Url || "";
+    var fallback = (dataUrl && s3Url && dataUrl !== s3Url) ? s3Url : null;
+    var attempts = 0;
 
     img.src = primary;
 
@@ -65,7 +92,10 @@ function addImageToChat(dataUrl, s3Url) {
                 "<div class='image-error'>" +
                     "<span>🖼️</span>" +
                     "<span>Image could not be loaded</span>" +
-                    (s3Url ? "<a href='" + s3Url + "' target='_blank' class='image-link'>Open in new tab</a>" : "") +
+                    (s3Url
+                        ? "<a href='" + s3Url +
+                          "' target='_blank' class='image-link'>Open in new tab</a>"
+                        : "") +
                 "</div>";
         }
     };
@@ -81,8 +111,8 @@ function addImageToChat(dataUrl, s3Url) {
     downloadBtn.className = "image-download-btn";
     downloadBtn.innerText = "⬇ Download";
     downloadBtn.onclick   = function() {
-        var a    = document.createElement("a");
-        a.href   = img.src || s3Url || dataUrl;
+        var a      = document.createElement("a");
+        a.href     = img.src || s3Url || dataUrl;
         a.download = "math-ai-image.png";
         a.click();
     };
@@ -97,7 +127,9 @@ function addImageToChat(dataUrl, s3Url) {
 function showTyping() {
     var container = document.getElementById("chatContainer");
     if (!container) return;
+
     removeTyping();
+
     var el       = document.createElement("div");
     el.id        = "typing";
     el.className = "message assistant typing-msg";
@@ -108,6 +140,7 @@ function showTyping() {
             "<span class='dot'></span>" +
         "</div>" +
         "<span class='typing-label'>Math AI is thinking...</span>";
+
     container.appendChild(el);
     container.scrollTop = container.scrollHeight;
 }
@@ -139,9 +172,9 @@ function createGraphWrapper(label, expression) {
     canvasBox.appendChild(canvas);
     wrapper.appendChild(canvasBox);
 
-    var footer      = document.createElement("div");
+    var footer       = document.createElement("div");
     footer.className = "graph-footer";
-    footer.innerText = "f(x) = " + (expression || label);
+    footer.innerText = "f(x) = " + (expression || label || "");
     wrapper.appendChild(footer);
 
     container.appendChild(wrapper);
@@ -169,11 +202,11 @@ function showWelcomeMessage() {
         "1. I start from the **basics** of any topic\n" +
         "2. I explain **why** each step is done\n" +
         "3. I ask if you understand before moving on\n" +
-        "4. I verify every answer for accuracy ✅\n" +
+        "4. SymPy + Wolfram Alpha verify every answer ✅\n" +
         "5. 🎤 You can **speak** your questions using the mic button\n\n" +
         "**Go ahead — ask me any math question!** 🚀";
 
-    addMathMarkdownMessage(welcomeText);
+    safeAddMathMarkdown(welcomeText, "assistant");
 }
 
 // ── ESCAPE HTML ───────────────────────────────────────────────
