@@ -1,16 +1,13 @@
-// ============================================================
-// math-renderer.js — LaTeX + Markdown rendering
-// MUST be loaded before renderer.js
-// Defines addMathMarkdownMessage used by renderer.js
+ // ============================================================
+// math-renderer.js — MUST load before renderer.js
+// Defines addMathMarkdownMessage used everywhere
 // ============================================================
 
-// ── IS KATEX READY ────────────────────────────────────────────
 function isKatexReady() {
     return typeof window.renderMathInElement !== "undefined" &&
            typeof window.katex !== "undefined";
 }
 
-// ── RENDER MATH IN ELEMENT ────────────────────────────────────
 function renderMathInEl(element) {
     if (!element) return;
     if (!isKatexReady()) {
@@ -35,8 +32,6 @@ function renderMathInEl(element) {
     }
 }
 
-// ── MAIN FUNCTION — ADD MATH + MARKDOWN MESSAGE ───────────────
-// This is the central rendering function used by all other files
 function addMathMarkdownMessage(text, role) {
     role = role || "assistant";
 
@@ -46,7 +41,6 @@ function addMathMarkdownMessage(text, role) {
     var wrapper      = document.createElement("div");
     wrapper.className = "message " + role + " markdown-message math-message";
 
-    // Configure marked
     if (typeof marked !== "undefined") {
         marked.setOptions({
             breaks:    true,
@@ -56,9 +50,8 @@ function addMathMarkdownMessage(text, role) {
         });
     }
 
-    // Step 1: Protect math blocks before markdown parsing
-    var mathBlocks  = [];
-    var processed   = text || "";
+    var mathBlocks = [];
+    var processed  = text || "";
 
     processed = processed.replace(/\$\$([\s\S]+?)\$\$/g, function(match) {
         var idx = mathBlocks.length;
@@ -72,14 +65,12 @@ function addMathMarkdownMessage(text, role) {
         return "MATHBLOCK_" + idx + "_END";
     });
 
-    // Step 2: Parse markdown
     var html = processed;
     if (typeof marked !== "undefined") {
         try { html = marked.parse(processed); }
         catch (e) { html = processed; }
     }
 
-    // Step 3: Sanitize
     if (typeof DOMPurify !== "undefined") {
         html = DOMPurify.sanitize(html, {
             ALLOWED_TAGS: [
@@ -93,40 +84,32 @@ function addMathMarkdownMessage(text, role) {
         });
     }
 
-    // Step 4: Restore math blocks
     mathBlocks.forEach(function(block, idx) {
         html = html.replace("MATHBLOCK_" + idx + "_END", block.content);
     });
 
     wrapper.innerHTML = html;
 
-    // Step 5: Add per-response speak button for assistant messages
     if (role === "assistant") {
         var speakBtn       = document.createElement("button");
         speakBtn.className = "response-speak-btn";
         speakBtn.title     = "Listen to this answer";
         speakBtn.innerHTML = "🔊";
-
-        var responseText = text || "";
-        speakBtn.onclick = function() {
+        var responseText   = text || "";
+        speakBtn.onclick   = function() {
             if (typeof speakResponse === "function") {
                 speakResponse(responseText, speakBtn);
             }
         };
-
         wrapper.appendChild(speakBtn);
     }
 
     container.appendChild(wrapper);
-
-    // Step 6: Render KaTeX
     renderMathInEl(wrapper);
-
     container.scrollTop = container.scrollHeight;
     return wrapper;
 }
 
-// ── RENDER ALL MATH ON PAGE ───────────────────────────────────
 function renderAllMathInPage() {
     var els = document.querySelectorAll(".math-message, .markdown-message");
     for (var i = 0; i < els.length; i++) {
@@ -134,7 +117,6 @@ function renderAllMathInPage() {
     }
 }
 
-// ── ESCAPE HTML ───────────────────────────────────────────────
 function escapeHtml(text) {
     var div = document.createElement("div");
     div.appendChild(document.createTextNode(text || ""));
