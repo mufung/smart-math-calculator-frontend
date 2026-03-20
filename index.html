@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -28,27 +28,32 @@
       <ul id="chatList"></ul>
     </div>
 
+    <!-- ── TRUST PANEL ────────────────────────────────── -->
     <div class="trust-panel">
-      <div class="trust-panel-title">🔬 Why Trust This AI?</div>
+      <div class="trust-panel-title">⚡ Why Trust This AI?</div>
       <div class="trust-item">
-        <span class="trust-icon">🧮</span>
-        <span class="trust-text">SymPy engine computes exact symbolic answers</span>
+        <span class="trust-icon">🔬</span>
+        <span class="trust-text">SymPy computes exact symbolic answers</span>
+      </div>
+      <div class="trust-item">
+        <span class="trust-icon">📐</span>
+        <span class="trust-text">SciPy confirms numerically</span>
+      </div>
+      <div class="trust-item">
+        <span class="trust-icon">🔢</span>
+        <span class="trust-text">NumPy handles matrices and linear algebra</span>
       </div>
       <div class="trust-item">
         <span class="trust-icon">W|A</span>
         <span class="trust-text">Wolfram Alpha certifies complex problems</span>
       </div>
       <div class="trust-item">
-        <span class="trust-icon">✅</span>
-        <span class="trust-text">Every answer triple-verified for accuracy</span>
-      </div>
-      <div class="trust-item">
         <span class="trust-icon">🤖</span>
-        <span class="trust-text">5 AI providers — 18 fallback models</span>
+        <span class="trust-text">OpenAI verifies and explains beautifully</span>
       </div>
       <div class="trust-item">
-        <span class="trust-icon">📚</span>
-        <span class="trust-text">Socratic teaching — explains WHY every step</span>
+        <span class="trust-icon">✅</span>
+        <span class="trust-text">5 engines agree before answer reaches you</span>
       </div>
     </div>
 
@@ -80,7 +85,7 @@
       <div class="topbar-right">
         <div class="engine-badge">
           <span class="engine-dot"></span>
-          <span>SymPy + Wolfram Active</span>
+          <span>Super Engine Active</span>
         </div>
         <span class="status-badge">🟢 Online</span>
       </div>
@@ -89,10 +94,10 @@
     <!-- ── TRUST BANNER ───────────────────────────────── -->
     <div class="trust-banner" id="trustBanner">
       <div class="trust-banner-inner">
-        <span class="trust-banner-icon">🔬</span>
+        <span class="trust-banner-icon">⚡</span>
         <div class="trust-banner-text">
-          <strong>Mathematically Verified Answers</strong>
-          <span>Every response computed by SymPy + Wolfram Alpha before AI explains — guaranteed 100% accurate</span>
+          <strong>Math Super Engine Active</strong>
+          <span>SymPy + SciPy + NumPy + Wolfram Alpha + OpenAI all verify every answer before you see it — guaranteed accuracy</span>
         </div>
         <button class="trust-banner-close" onclick="closeTrustBanner()">✕</button>
       </div>
@@ -172,7 +177,7 @@
 
       <div class="input-hint">
         Try: "solve x² + 5x + 6 = 0" &bull; "plot sin(x)" &bull;
-        "factorise x² - 9" &bull; "differentiate x³" &bull; 🎤 speak
+        "integrate x²e^(3x)" &bull; "y'' - 4y' + 4y = e^(2x)sin(3x)" &bull; 🎤 speak
       </div>
     </div>
   </div>
@@ -189,7 +194,6 @@
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
         crossorigin="anonymous" defer onload="onKatexLoaded()"></script>
 
-<!-- Our files — math-renderer MUST be before renderer -->
 <script src="conversation.js"></script>
 <script src="voice.js"></script>
 <script src="math-renderer.js"></script>
