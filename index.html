@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -28,7 +28,7 @@
       <ul id="chatList"></ul>
     </div>
 
-    <!-- ── TRUST PANEL — PATH 10 ──────────────────────── -->
+    <!-- ── TRUST PANEL ────────────────────────────────── -->
     <div class="trust-panel">
       <div class="trust-panel-title">🔬 Why Trust This AI?</div>
       <div class="trust-item">
@@ -41,11 +41,11 @@
       </div>
       <div class="trust-item">
         <span class="trust-icon">🤖</span>
-        <span class="trust-text">5 AI providers + 18 fallback models — never fails</span>
+        <span class="trust-text">5 AI providers with 18 fallback models — never fails</span>
       </div>
       <div class="trust-item">
         <span class="trust-icon">📚</span>
-        <span class="trust-text">Socratic teaching — explains WHY, not just answers</span>
+        <span class="trust-text">Socratic teaching — explains WHY not just answers</span>
       </div>
       <div class="trust-item">
         <span class="trust-icon">🔒</span>
@@ -93,7 +93,7 @@
         <span class="trust-banner-icon">🔬</span>
         <div class="trust-banner-text">
           <strong>Mathematically Verified Answers</strong>
-          <span>Every response is computed by SymPy symbolic math engine before AI explains — guaranteeing 100% accurate results</span>
+          <span>Every response is computed by SymPy and Wolfram Alpha before AI explains — guaranteeing 100% accurate results</span>
         </div>
         <button class="trust-banner-close" onclick="closeTrustBanner()">✕</button>
       </div>
@@ -179,23 +179,37 @@
   </div>
 </div>
 
-<!-- ── SCRIPTS ─────────────────────────────────────────────── -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- SCRIPTS — ORDER IS CRITICAL — DO NOT CHANGE THIS ORDER   -->
+<!-- ══════════════════════════════════════════════════════════ -->
+
+<!-- 1. External libraries first -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"
-        crossorigin="anonymous" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
-        crossorigin="anonymous" defer onload="onKatexLoaded()"></script>
 
+<!-- 2. KaTeX — deferred so it does not block -->
+<script
+  src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"
+  crossorigin="anonymous" defer></script>
+<script
+  src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+  crossorigin="anonymous" defer onload="onKatexLoaded()"></script>
+
+<!-- 3. Our files — math-renderer MUST come before renderer -->
 <script src="conversation.js"></script>
 <script src="voice.js"></script>
-<script src="renderer.js"></script>
 <script src="math-renderer.js"></script>
+<script src="renderer.js"></script>
 <script src="app.js"></script>
 
 <script>
-function onKatexLoaded() { renderAllMathInPage(); }
+// ── KaTeX callback ────────────────────────────────────────────
+function onKatexLoaded() {
+    if (typeof renderAllMathInPage === "function") {
+        renderAllMathInPage();
+    }
+}
 
 // ── THEME TOGGLE ──────────────────────────────────────────────
 (function() {
@@ -233,27 +247,29 @@ function closeTrustBanner() {
         banner.style.maxHeight = "0";
         banner.style.padding   = "0";
         banner.style.opacity   = "0";
-        setTimeout(function() { banner.style.display = "none"; }, 400);
+        setTimeout(function() {
+            if (banner) banner.style.display = "none";
+        }, 400);
     }
     localStorage.setItem("trustBannerClosed", "1");
 }
 
-// Auto close if already closed before
 if (localStorage.getItem("trustBannerClosed")) {
     var b = document.getElementById("trustBanner");
     if (b) b.style.display = "none";
 }
 
-// ── SEND / ENTER / MIC ────────────────────────────────────────
+// ── SEND BUTTON ───────────────────────────────────────────────
 document.getElementById("sendBtn").addEventListener("click", function() {
-    sendMessage();
+    if (typeof sendMessage === "function") sendMessage();
 });
 
+// ── ENTER KEY ─────────────────────────────────────────────────
 document.getElementById("messageInput").addEventListener("keypress",
 function(e) {
     if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        sendMessage();
+        if (typeof sendMessage === "function") sendMessage();
     }
 });
 </script>
