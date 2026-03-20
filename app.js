@@ -1,5 +1,6 @@
-// ============================================================
-// app.js — Math AI Assistant — Paths 1-11 + Super Engine
+ // ============================================================
+// app.js — Math AI Assistant — All Paths Complete
+// Trust panel removed. Super engine badge added.
 // ============================================================
 
 var CHAT_API     = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/fallback";
@@ -43,9 +44,7 @@ function startNewChat() {
 
     if (typeof VoiceState !== "undefined" && VoiceState.userInteracted) {
         setTimeout(function() {
-            if (typeof speakText === "function") {
-                speakText("New chat started. Ask me any math question!");
-            }
+            if (typeof speakText === "function") speakText("New chat started. Ask me any math question!");
         }, 400);
     }
 }
@@ -56,8 +55,7 @@ async function loadSessions() {
     try {
         list.innerHTML = "<li class='loading-chats'>Loading chats...</li>";
         var res        = await fetch(SESSIONS_API);
-        var text       = await res.text();
-        var data       = JSON.parse(text);
+        var data       = JSON.parse(await res.text());
         var sessions   = data.sessions || [];
         list.innerHTML = "";
 
@@ -74,8 +72,7 @@ async function loadSessions() {
 
             var date = session.date
                 ? new Date(Number(session.date)).toLocaleDateString("en-US", {
-                    month: "short", day: "numeric"
-                  })
+                    month: "short", day: "numeric" })
                 : "";
 
             li.innerHTML =
@@ -85,9 +82,7 @@ async function loadSessions() {
                     "<span class='chat-item-date'>" + date + "</span>" +
                 "</div>";
 
-            li.addEventListener("click", function() {
-                loadHistory(session.sessionId, li);
-            });
+            li.addEventListener("click", function() { loadHistory(session.sessionId, li); });
             list.appendChild(li);
         });
 
@@ -101,10 +96,10 @@ async function loadHistory(sid, clickedEl) {
     try {
         sessionId = sid;
         localStorage.setItem("sessionId", sid);
-        if (typeof clearHistory     === "function") clearHistory();
-        if (typeof initConversation  === "function") initConversation(sid);
-        if (typeof stopSpeaking     === "function") stopSpeaking();
-        if (typeof cancelRecording  === "function") cancelRecording();
+        if (typeof clearHistory    === "function") clearHistory();
+        if (typeof initConversation === "function") initConversation(sid);
+        if (typeof stopSpeaking    === "function") stopSpeaking();
+        if (typeof cancelRecording === "function") cancelRecording();
 
         document.querySelectorAll(".chat-item").forEach(function(el) {
             el.classList.remove("active-chat");
@@ -118,14 +113,10 @@ async function loadHistory(sid, clickedEl) {
 
         var res  = await fetch(HISTORY_API + "?sessionId=" + encodeURIComponent(sid));
         var data = await res.json();
-
         if (container) container.innerHTML = "";
 
         var messages = data.messages || [];
-        if (messages.length === 0) {
-            safeAddMessage("No messages found in this chat.");
-            return;
-        }
+        if (messages.length === 0) { safeAddMessage("No messages found in this chat."); return; }
 
         for (var i = 0; i < messages.length; i++) {
             var msg = messages[i];
@@ -135,18 +126,12 @@ async function loadHistory(sid, clickedEl) {
                 if (typeof addUserMessage === "function") addUserMessage(msg.text);
                 if (typeof addToHistory   === "function") addToHistory("user", msg.text);
             } else if (msg.type === "image") {
-                if (msg.s3_url) {
-                    if (typeof addImageToChat === "function") addImageToChat(msg.s3_url, msg.s3_url);
-                } else {
-                    safeAddMessage("🎨 Image generated here");
-                }
+                if (msg.s3_url && typeof addImageToChat === "function") addImageToChat(msg.s3_url, msg.s3_url);
+                else safeAddMessage("🎨 Image generated here");
                 if (typeof addToHistory === "function") addToHistory("assistant", msg.text || "[Image]");
             } else if (msg.type === "graph") {
-                if (msg.graph_data && msg.graph_data.x && msg.graph_data.y) {
-                    addGraph(msg.graph_data);
-                } else {
-                    safeAddMessage("📈 " + msg.text);
-                }
+                if (msg.graph_data && msg.graph_data.x && msg.graph_data.y) addGraph(msg.graph_data);
+                else safeAddMessage("📈 " + msg.text);
                 if (typeof addToHistory === "function") addToHistory("assistant", msg.text || "[Graph]");
             } else {
                 safeAddMessage(msg.text);
@@ -188,14 +173,13 @@ async function sendMessage() {
         if (typeof dismissInteractionPrompt === "function") dismissInteractionPrompt();
     }
 
-    if (typeof stopSpeaking      === "function") stopSpeaking();
-    if (typeof hideRecordingPanel === "function") hideRecordingPanel();
-
-    if (typeof addUserMessage    === "function") addUserMessage(message);
+    if (typeof stopSpeaking       === "function") stopSpeaking();
+    if (typeof hideRecordingPanel  === "function") hideRecordingPanel();
+    if (typeof addUserMessage      === "function") addUserMessage(message);
     input.value = "";
     hideQuickReplies();
-    if (typeof showTyping        === "function") showTyping();
-    if (typeof detectTopic       === "function") detectTopic(message);
+    if (typeof showTyping          === "function") showTyping();
+    if (typeof detectTopic         === "function") detectTopic(message);
 
     var isConfused   = typeof isConfusionMessage     === "function" ? isConfusionMessage(message)     : false;
     var isUnderstood = typeof isUnderstandingMessage === "function" ? isUnderstandingMessage(message) : false;
@@ -223,7 +207,6 @@ async function sendMessage() {
             await handleChat(message);
         }
         setTimeout(loadSessions, 2000);
-
     } catch (error) {
         if (typeof removeTyping === "function") removeTyping();
         safeAddMessage("Something went wrong. Please try again.");
@@ -232,20 +215,13 @@ async function sendMessage() {
 }
 
 async function handleChat(message) {
-    var contextAdd = typeof getContextualInstruction === "function"
-        ? getContextualInstruction() : "";
-    var history = typeof getFormattedHistory === "function"
-        ? getFormattedHistory() : [];
+    var contextAdd = typeof getContextualInstruction === "function" ? getContextualInstruction() : "";
+    var history    = typeof getFormattedHistory      === "function" ? getFormattedHistory()      : [];
 
     var res = await fetch(CHAT_API, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-            message:    message,
-            sessionId:  sessionId,
-            history:    history,
-            contextAdd: contextAdd
-        })
+        body:    JSON.stringify({ message: message, sessionId: sessionId, history: history, contextAdd: contextAdd })
     });
 
     var data = await res.json();
@@ -261,38 +237,21 @@ async function handleChat(message) {
         addToHistory("assistant", reply);
     }
 
-    if (typeof removeTyping                 === "function") removeTyping();
-    if (typeof removeClarificationIndicator  === "function") removeClarificationIndicator();
+    if (typeof removeTyping                  === "function") removeTyping();
+    if (typeof removeClarificationIndicator   === "function") removeClarificationIndicator();
 
     var msgWrapper = addMathMarkdownMessage(reply, "assistant");
     setTimeout(showQuickReplies, 400);
-    setTimeout(function() {
-        if (typeof speakText === "function") speakText(reply);
-    }, 200);
+    setTimeout(function() { if (typeof speakText === "function") speakText(reply); }, 200);
 
-    // ── Show Super Engine badge ───────────────────────────
     if (data.super_computed && data.super_answer) {
-        addSuperEngineBadge(
-            msgWrapper,
-            data.super_answer,
-            data.super_topic,
-            data.super_confidence,
-            data.super_engines
-        );
+        addSuperEngineBadge(msgWrapper, data.super_answer, data.super_topic, data.super_confidence, data.super_engines);
     }
 
-    // ── Show Wolfram badge ────────────────────────────────
     if (data.wolfram_computed && data.wolfram_answer) {
-        addWolframBadge(
-            msgWrapper,
-            data.wolfram_answer,
-            data.wolfram_steps || [],
-            [],
-            data.super_computed || false
-        );
+        addWolframBadge(msgWrapper, data.wolfram_answer, data.wolfram_steps || [], [], data.super_computed || false);
     }
 
-    // ── Legacy SymPy badge ────────────────────────────────
     if (!data.super_computed && data.sympy_computed && data.sympy_answer) {
         addSympyTrustBadge(msgWrapper, data.sympy_answer, data.sympy_topic);
     }
@@ -300,27 +259,18 @@ async function handleChat(message) {
     verifyAndShowBadge(message, reply, msgWrapper);
 }
 
-// ── SUPER ENGINE BADGE ────────────────────────────────────────
 function addSuperEngineBadge(wrapper, answer, topic, confidence, status) {
     if (!wrapper) return;
 
-    var confidenceColor = confidence === "very_high" ? "#00e5a0" :
-                          confidence === "high"       ? "#10b981" :
-                          confidence === "medium"     ? "#f59e0b" : "#10b981";
+    var confidenceColor =
+        confidence === "very_high" ? "#00e5a0" :
+        confidence === "high"      ? "#10b981" :
+        confidence === "medium"    ? "#f59e0b" : "#10b981";
 
-    var statusText = status === "confirmed"     ? "✓ Multi-Engine Confirmed" :
-                     status === "single_engine" ? "✓ Engine Computed"        :
-                     "✓ Verified";
-
-    var enginesHtml = "";
-    if (status === "confirmed") {
-        enginesHtml =
-            "<div class='super-engine-engines'>" +
-            "<span class='se-engine-tag'>🔬 SymPy</span>" +
-            "<span class='se-engine-tag'>📐 SciPy</span>" +
-            "<span class='se-engine-tag'>🤖 OpenAI</span>" +
-            "</div>";
-    }
+    var statusText =
+        status === "confirmed"     ? "✓ Multi-Engine Confirmed" :
+        status === "single_engine" ? "✓ Engine Computed"        :
+        "✓ Verified";
 
     var badge       = document.createElement("div");
     badge.className = "super-engine-badge";
@@ -329,24 +279,18 @@ function addSuperEngineBadge(wrapper, answer, topic, confidence, status) {
             "<div class='se-header-left'>" +
                 "<span class='se-icon'>⚡</span>" +
                 "<span class='se-title'>Math Super Engine</span>" +
-                "<span class='se-status' style='color:" + confidenceColor + "'>" +
-                    statusText +
-                "</span>" +
+                "<span class='se-status' style='color:" + confidenceColor + "'>" + statusText + "</span>" +
             "</div>" +
             "<div class='se-header-right'>" +
-                "<span class='se-confidence'>" +
-                    (confidence || "high").replace("_", " ").toUpperCase() +
-                "</span>" +
+                "<span class='se-confidence'>" + (confidence || "high").replace("_", " ").toUpperCase() + "</span>" +
             "</div>" +
         "</div>" +
         "<div class='se-answer'>" + escapeHtml(answer) + "</div>" +
-        enginesHtml +
         "<div class='se-note'>Computed by SymPy + SciPy + NumPy + OpenAI — mathematically exact</div>";
 
     wrapper.insertBefore(badge, wrapper.firstChild);
 }
 
-// ── SYMPY TRUST BADGE (legacy) ────────────────────────────────
 function addSympyTrustBadge(wrapper, sympyAnswer, topic) {
     if (!wrapper) return;
     var badge       = document.createElement("div");
@@ -364,15 +308,12 @@ function addSympyTrustBadge(wrapper, sympyAnswer, topic) {
     wrapper.insertBefore(badge, wrapper.firstChild);
 }
 
-// ── WOLFRAM BADGE ─────────────────────────────────────────────
 function addWolframBadge(wrapper, answer, steps, altForms, crossVerified) {
     if (!wrapper) return;
 
     var stepsHtml = "";
     if (steps && steps.length > 0) {
-        var cleanSteps = steps.filter(function(s) {
-            return s && s.trim().length > 3;
-        });
+        var cleanSteps = steps.filter(function(s) { return s && s.trim().length > 3; });
         if (cleanSteps.length > 0) {
             stepsHtml =
                 "<div class='wolfram-steps'>" +
@@ -416,6 +357,7 @@ function addWolframBadge(wrapper, answer, steps, altForms, crossVerified) {
     }
 }
 
+
 function toggleWolframDetails(uid) {
     var el = document.getElementById(uid);
     if (!el) return;
@@ -438,8 +380,7 @@ async function verifyAndShowBadge(question, aiAnswer, messageWrapper) {
             body:    JSON.stringify({
                 question:  question,
                 ai_answer: aiAnswer.substring(0, 1000),
-                topic:     (typeof detectTopic === "function"
-                    ? detectTopic(question) : null) || "general"
+                topic:     (typeof detectTopic === "function" ? detectTopic(question) : null) || "general"
             })
         });
 
@@ -448,7 +389,6 @@ async function verifyAndShowBadge(question, aiAnswer, messageWrapper) {
         if (typeof result.body === "string") result = JSON.parse(result.body);
         spinner.remove();
         if (result && result.badge) addVerificationBadge(messageWrapper, result);
-
     } catch (err) {
         console.warn("Verification silent fail:", err);
     }
@@ -504,10 +444,7 @@ async function handleGraph(message) {
             }
         }, 600);
     } else {
-        safeAddMessage(
-            "Could not generate graph.\n\n**Try:**\n" +
-            "- plot x squared\n- graph sin(x)\n- plot x cubed minus 2x"
-        );
+        safeAddMessage("Could not generate graph.\n\n**Try:**\n- plot x squared\n- graph sin(x)");
     }
 }
 
@@ -532,23 +469,14 @@ async function handleImage(message) {
         var sizeMatch  = msg.match(/size\s*(\d+)|(\d+)\s*px/);
         var size       = sizeMatch ? parseInt(sizeMatch[1] || sizeMatch[2]) : 150;
 
-        var colorList = ["red","blue","green","yellow","purple","orange",
-                         "pink","cyan","royalblue","gold","white"];
+        var colorList = ["red","blue","green","yellow","purple","orange","pink","cyan","royalblue","gold","white"];
         var color     = "royalblue";
         for (var ci = 0; ci < colorList.length; ci++) {
             if (msg.includes(colorList[ci])) { color = colorList[ci]; break; }
         }
 
-        body = {
-            action:    "draw_shape",
-            shape:     shape,
-            sides:     sides,
-            size:      size,
-            color:     color,
-            outline:   "white",
-            label:     message,
-            sessionId: sessionId
-        };
+        body = { action: "draw_shape", shape: shape, sides: sides, size: size,
+                 color: color, outline: "white", label: message, sessionId: sessionId };
     }
 
     var res = await fetch(IMAGE_API, {
@@ -566,24 +494,16 @@ async function handleImage(message) {
         var displayUrl = null;
         var s3Url      = data.s3_url || null;
 
-        if      (data.data_url)                    displayUrl = data.data_url;
-        else if (data.image)                       displayUrl = "data:image/png;base64," + data.image;
-        else if (data.images && data.images[0]) {
-            displayUrl = data.images[0].data_url;
-            s3Url      = data.images[0].s3_url || s3Url;
-        } else if (s3Url)                          displayUrl = s3Url;
+        if      (data.data_url)                  displayUrl = data.data_url;
+        else if (data.image)                     displayUrl = "data:image/png;base64," + data.image;
+        else if (data.images && data.images[0]) { displayUrl = data.images[0].data_url; s3Url = data.images[0].s3_url || s3Url; }
+        else if (s3Url)                          displayUrl = s3Url;
 
         if (displayUrl) {
             if (typeof addImageToChat === "function") addImageToChat(displayUrl, s3Url);
-            if (typeof addToHistory   === "function") {
-                addToHistory("user",      message);
-                addToHistory("assistant", "[Image generated]");
-            }
+            if (typeof addToHistory   === "function") { addToHistory("user", message); addToHistory("assistant", "[Image]"); }
             setTimeout(function() {
-                if (typeof speakText === "function") {
-                    speakText("There you go! I have drawn the " +
-                        (body.shape || "image") + " for you!");
-                }
+                if (typeof speakText === "function") speakText("There you go! I have drawn the " + (body.shape || "image") + " for you!");
             }, 500);
         } else {
             safeAddMessage("Could not generate image: " + (data.error || "Unknown error"));
@@ -611,10 +531,7 @@ function addGraph(data) {
     }
     points.sort(function(a, b) { return a.x - b.x; });
 
-    if (points.length === 0) {
-        safeAddMessage("No valid data points to plot.");
-        return;
-    }
+    if (points.length === 0) { safeAddMessage("No valid data points to plot."); return; }
 
     var allY       = points.map(function(p) { return p.y; });
     var minY       = Math.min.apply(null, allY);
@@ -632,84 +549,49 @@ function addGraph(data) {
     var xRange2    = xMax - xMin;
     var xTickStep  = xRange2 <= 4 ? 0.5 : xRange2 <= 8 ? 1 : xRange2 <= 16 ? 2 : 5;
     var yDispRange = yMax - yMin;
-    var yTickStep  = yDispRange <= 4 ? 0.5 : yDispRange <= 8 ? 1 :
-                     yDispRange <= 16 ? 2 : yDispRange <= 40 ? 5 : 10;
+    var yTickStep  = yDispRange <= 4 ? 0.5 : yDispRange <= 8 ? 1 : yDispRange <= 16 ? 2 : yDispRange <= 40 ? 5 : 10;
 
     new Chart(canvas, {
         type: "scatter",
         data: { datasets: [{
-            data:             points,
-            showLine:         true,
-            borderColor:      "#2563eb",
-            borderWidth:      2.5,
-            pointRadius:      0,
-            pointHoverRadius: 5,
-            tension:          0,
-            fill:             false
+            data: points, showLine: true, borderColor: "#2563eb", borderWidth: 2.5,
+            pointRadius: 0, pointHoverRadius: 5, tension: 0, fill: false
         }]},
         options: {
-            responsive:          true,
-            maintainAspectRatio: false,
-            animation:           { duration: 700 },
+            responsive: true, maintainAspectRatio: false, animation: { duration: 700 },
             plugins: {
-                legend:  { display: false },
+                legend: { display: false },
                 tooltip: {
-                    backgroundColor: "#1e3a5f",
-                    titleColor:      "#fff",
-                    bodyColor:       "#93c5fd",
-                    padding:         10,
-                    cornerRadius:    8,
+                    backgroundColor: "#1e3a5f", titleColor: "#fff", bodyColor: "#93c5fd",
+                    padding: 10, cornerRadius: 8,
                     callbacks: {
                         title: function() { return data.label || "f(x)"; },
-                        label: function(ctx) {
-                            return "x = " + ctx.parsed.x.toFixed(2) +
-                                   ",  y = " + ctx.parsed.y.toFixed(3);
-                        }
+                        label: function(ctx) { return "x = " + ctx.parsed.x.toFixed(2) + ",  y = " + ctx.parsed.y.toFixed(3); }
                     }
                 }
             },
             scales: {
                 x: {
                     type: "linear", min: xMin, max: xMax, position: "center",
-                    title: { display: true, text: "x", color: "#1e293b",
-                             font: { size: 13, weight: "bold" } },
+                    title: { display: true, text: "x", color: "#1e293b", font: { size: 13, weight: "bold" } },
                     grid: {
-                        color: function(ctx) {
-                            return ctx.tick.value === 0 ? "#000" : "#e5e7eb";
-                        },
-                        lineWidth: function(ctx) {
-                            return ctx.tick.value === 0 ? 2 : 1;
-                        }
+                        color: function(ctx) { return ctx.tick.value === 0 ? "#000" : "#e5e7eb"; },
+                        lineWidth: function(ctx) { return ctx.tick.value === 0 ? 2 : 1; }
                     },
-                    ticks: {
-                        color: "#374151", stepSize: xTickStep,
-                        font: { size: 11, family: "monospace" },
-                        callback: function(val) {
-                            return val === 0 ? "0" :
-                                   Number.isInteger(val) ? val : val.toFixed(1);
-                        }
+                    ticks: { color: "#374151", stepSize: xTickStep, font: { size: 11, family: "monospace" },
+                        callback: function(val) { return val === 0 ? "0" : Number.isInteger(val) ? val : val.toFixed(1); }
                     },
                     border: { display: true, color: "#111827", width: 2 }
                 },
                 y: {
                     type: "linear", min: yMin, max: yMax, position: "center",
-                    title: { display: true, text: "y", color: "#1e293b",
-                             font: { size: 13, weight: "bold" } },
+                    title: { display: true, text: "y", color: "#1e293b", font: { size: 13, weight: "bold" } },
                     grid: {
-                        color: function(ctx) {
-                            return ctx.tick.value === 0 ? "#000" : "#e5e7eb";
-                        },
-                        lineWidth: function(ctx) {
-                            return ctx.tick.value === 0 ? 2 : 1;
-                        }
+                        color: function(ctx) { return ctx.tick.value === 0 ? "#000" : "#e5e7eb"; },
+                        lineWidth: function(ctx) { return ctx.tick.value === 0 ? 2 : 1; }
                     },
-                    ticks: {
-                        color: "#374151", stepSize: yTickStep,
-                        font: { size: 11, family: "monospace" },
-                        callback: function(val) {
-                            return val === 0 ? "0" :
-                                   Number.isInteger(val) ? val : val.toFixed(1);
-                        }
+                    ticks: { color: "#374151", stepSize: yTickStep, font: { size: 11, family: "monospace" },
+                        callback: function(val) { return val === 0 ? "0" : Number.isInteger(val) ? val : val.toFixed(1); }
                     },
                     border: { display: true, color: "#111827", width: 2 }
                 }
@@ -725,9 +607,7 @@ function showClarificationIndicator() {
     var banner      = document.createElement("div");
     banner.id       = "clarificationBanner";
     banner.className = "clarification-banner";
-    banner.innerHTML =
-        "<span class='clarification-icon'>🔄</span>" +
-        "<span>Re-explaining with a simpler approach...</span>";
+    banner.innerHTML = "<span class='clarification-icon'>🔄</span><span>Re-explaining with a simpler approach...</span>";
     var inputArea = document.querySelector(".inputArea");
     if (inputArea) app.insertBefore(banner, inputArea);
 }
