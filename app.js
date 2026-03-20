@@ -1,6 +1,5 @@
 // ============================================================
-// app.js — Math AI Assistant — Paths 1-11 Complete
-// All fixes applied — no broken references
+// app.js — Math AI Assistant — Paths 1-11 + Super Engine
 // ============================================================
 
 var CHAT_API     = "https://h205wzv2tg.execute-api.us-west-1.amazonaws.com/prod/fallback";
@@ -14,8 +13,8 @@ var sessionId = localStorage.getItem("sessionId") || generateSessionId();
 localStorage.setItem("sessionId", sessionId);
 
 window.addEventListener("load", function() {
-    initConversation(sessionId);
-    if (typeof initVoice === "function") initVoice();
+    if (typeof initConversation  === "function") initConversation(sessionId);
+    if (typeof initVoice         === "function") initVoice();
     loadSessions();
     if (typeof showWelcomeMessage === "function") showWelcomeMessage();
 });
@@ -27,10 +26,10 @@ function generateSessionId() {
 function startNewChat() {
     sessionId = generateSessionId();
     localStorage.setItem("sessionId", sessionId);
-    if (typeof clearHistory    === "function") clearHistory();
-    if (typeof initConversation === "function") initConversation(sessionId);
-    if (typeof stopSpeaking    === "function") stopSpeaking();
-    if (typeof cancelRecording === "function") cancelRecording();
+    if (typeof clearHistory     === "function") clearHistory();
+    if (typeof initConversation  === "function") initConversation(sessionId);
+    if (typeof stopSpeaking     === "function") stopSpeaking();
+    if (typeof cancelRecording  === "function") cancelRecording();
 
     var container = document.getElementById("chatContainer");
     if (container) container.innerHTML = "";
@@ -92,8 +91,6 @@ async function loadSessions() {
             list.appendChild(li);
         });
 
-        console.log("Loaded " + sessions.length + " sessions");
-
     } catch (err) {
         console.error("Sessions error:", err);
         if (list) list.innerHTML = "<li class='no-chats'>Could not load chats</li>";
@@ -117,7 +114,6 @@ async function loadHistory(sid, clickedEl) {
         var container = document.getElementById("chatContainer");
         if (container) container.innerHTML = "";
         hideQuickReplies();
-
         safeAddMessage("Loading chat history...");
 
         var res  = await fetch(HISTORY_API + "?sessionId=" + encodeURIComponent(sid));
@@ -170,8 +166,6 @@ async function loadHistory(sid, clickedEl) {
 function safeAddMessage(text) {
     if (typeof addMathMarkdownMessage === "function") {
         addMathMarkdownMessage(text, "assistant");
-    } else if (typeof addMarkdownMessage === "function") {
-        addMarkdownMessage(text, "assistant");
     } else {
         var c = document.getElementById("chatContainer");
         if (c) {
@@ -194,21 +188,21 @@ async function sendMessage() {
         if (typeof dismissInteractionPrompt === "function") dismissInteractionPrompt();
     }
 
-    if (typeof stopSpeaking    === "function") stopSpeaking();
+    if (typeof stopSpeaking      === "function") stopSpeaking();
     if (typeof hideRecordingPanel === "function") hideRecordingPanel();
 
-    if (typeof addUserMessage  === "function") addUserMessage(message);
+    if (typeof addUserMessage    === "function") addUserMessage(message);
     input.value = "";
     hideQuickReplies();
-    if (typeof showTyping      === "function") showTyping();
-    if (typeof detectTopic     === "function") detectTopic(message);
+    if (typeof showTyping        === "function") showTyping();
+    if (typeof detectTopic       === "function") detectTopic(message);
 
-    var isConfused   = typeof isConfusionMessage   === "function" ? isConfusionMessage(message)   : false;
+    var isConfused   = typeof isConfusionMessage     === "function" ? isConfusionMessage(message)     : false;
     var isUnderstood = typeof isUnderstandingMessage === "function" ? isUnderstandingMessage(message) : false;
 
     if (isConfused) {
-        if (typeof recordClarificationRequest  === "function") recordClarificationRequest();
-        if (typeof showClarificationIndicator  === "function") showClarificationIndicator();
+        if (typeof recordClarificationRequest === "function") recordClarificationRequest();
+        if (typeof showClarificationIndicator === "function") showClarificationIndicator();
     }
     if (isUnderstood) {
         if (typeof recordUnderstanding === "function") recordUnderstanding();
@@ -267,35 +261,94 @@ async function handleChat(message) {
         addToHistory("assistant", reply);
     }
 
-    if (typeof removeTyping             === "function") removeTyping();
-    if (typeof removeClarificationIndicator === "function") removeClarificationIndicator();
+    if (typeof removeTyping                 === "function") removeTyping();
+    if (typeof removeClarificationIndicator  === "function") removeClarificationIndicator();
 
     var msgWrapper = addMathMarkdownMessage(reply, "assistant");
     setTimeout(showQuickReplies, 400);
-
     setTimeout(function() {
         if (typeof speakText === "function") speakText(reply);
     }, 200);
 
-    if (data.sympy_computed && data.sympy_answer) {
-        addSympyTrustBadge(msgWrapper, data.sympy_answer, data.sympy_topic);
+    // ── Show Super Engine badge ───────────────────────────
+    if (data.super_computed && data.super_answer) {
+        addSuperEngineBadge(
+            msgWrapper,
+            data.super_answer,
+            data.super_topic,
+            data.super_confidence,
+            data.super_engines
+        );
     }
 
+    // ── Show Wolfram badge ────────────────────────────────
     if (data.wolfram_computed && data.wolfram_answer) {
         addWolframBadge(
             msgWrapper,
             data.wolfram_answer,
-            data.wolfram_steps  || [],
-            data.wolfram_alt    || [],
-            data.sympy_computed || false
+            data.wolfram_steps || [],
+            [],
+            data.super_computed || false
         );
+    }
+
+    // ── Legacy SymPy badge ────────────────────────────────
+    if (!data.super_computed && data.sympy_computed && data.sympy_answer) {
+        addSympyTrustBadge(msgWrapper, data.sympy_answer, data.sympy_topic);
     }
 
     verifyAndShowBadge(message, reply, msgWrapper);
 }
 
-function addSympyTrustBadge(messageWrapper, sympyAnswer, topic) {
-    if (!messageWrapper) return;
+// ── SUPER ENGINE BADGE ────────────────────────────────────────
+function addSuperEngineBadge(wrapper, answer, topic, confidence, status) {
+    if (!wrapper) return;
+
+    var confidenceColor = confidence === "very_high" ? "#00e5a0" :
+                          confidence === "high"       ? "#10b981" :
+                          confidence === "medium"     ? "#f59e0b" : "#10b981";
+
+    var statusText = status === "confirmed"     ? "✓ Multi-Engine Confirmed" :
+                     status === "single_engine" ? "✓ Engine Computed"        :
+                     "✓ Verified";
+
+    var enginesHtml = "";
+    if (status === "confirmed") {
+        enginesHtml =
+            "<div class='super-engine-engines'>" +
+            "<span class='se-engine-tag'>🔬 SymPy</span>" +
+            "<span class='se-engine-tag'>📐 SciPy</span>" +
+            "<span class='se-engine-tag'>🤖 OpenAI</span>" +
+            "</div>";
+    }
+
+    var badge       = document.createElement("div");
+    badge.className = "super-engine-badge";
+    badge.innerHTML =
+        "<div class='se-header'>" +
+            "<div class='se-header-left'>" +
+                "<span class='se-icon'>⚡</span>" +
+                "<span class='se-title'>Math Super Engine</span>" +
+                "<span class='se-status' style='color:" + confidenceColor + "'>" +
+                    statusText +
+                "</span>" +
+            "</div>" +
+            "<div class='se-header-right'>" +
+                "<span class='se-confidence'>" +
+                    (confidence || "high").replace("_", " ").toUpperCase() +
+                "</span>" +
+            "</div>" +
+        "</div>" +
+        "<div class='se-answer'>" + escapeHtml(answer) + "</div>" +
+        enginesHtml +
+        "<div class='se-note'>Computed by SymPy + SciPy + NumPy + OpenAI — mathematically exact</div>";
+
+    wrapper.insertBefore(badge, wrapper.firstChild);
+}
+
+// ── SYMPY TRUST BADGE (legacy) ────────────────────────────────
+function addSympyTrustBadge(wrapper, sympyAnswer, topic) {
+    if (!wrapper) return;
     var badge       = document.createElement("div");
     badge.className = "sympy-trust-badge";
     badge.innerHTML =
@@ -306,38 +359,33 @@ function addSympyTrustBadge(messageWrapper, sympyAnswer, topic) {
         "</div>" +
         "<div class='sympy-badge-body'>" +
             "<span class='sympy-badge-answer'>" + escapeHtml(sympyAnswer) + "</span>" +
-            "<span class='sympy-badge-note'>Computed by SymPy symbolic math engine — 100% exact</span>" +
+            "<span class='sympy-badge-note'>Computed by SymPy — 100% exact</span>" +
         "</div>";
-    messageWrapper.insertBefore(badge, messageWrapper.firstChild);
+    wrapper.insertBefore(badge, wrapper.firstChild);
 }
 
-function addWolframBadge(messageWrapper, answer, steps, altForms, crossVerified) {
-    if (!messageWrapper) return;
+// ── WOLFRAM BADGE ─────────────────────────────────────────────
+function addWolframBadge(wrapper, answer, steps, altForms, crossVerified) {
+    if (!wrapper) return;
 
     var stepsHtml = "";
     if (steps && steps.length > 0) {
-        stepsHtml =
-            "<div class='wolfram-steps'>" +
-            "<div class='wolfram-steps-title'>📋 Wolfram Steps:</div>" +
-            steps.slice(0, 5).map(function(s) {
-                return "<div class='wolfram-step-item'>" + escapeHtml(s) + "</div>";
-            }).join("") +
-            "</div>";
-    }
-
-    var altHtml = "";
-    if (altForms && altForms.length > 0) {
-        altHtml =
-            "<div class='wolfram-alt'>" +
-            "<span class='wolfram-alt-title'>Alternate forms: </span>" +
-            altForms.slice(0, 3).map(function(a) {
-                return "<span class='wolfram-alt-item'>" + escapeHtml(a) + "</span>";
-            }).join(", ") +
-            "</div>";
+        var cleanSteps = steps.filter(function(s) {
+            return s && s.trim().length > 3;
+        });
+        if (cleanSteps.length > 0) {
+            stepsHtml =
+                "<div class='wolfram-steps'>" +
+                "<div class='wolfram-steps-title'>📋 Steps:</div>" +
+                cleanSteps.slice(0, 3).map(function(s) {
+                    return "<div class='wolfram-step-item'>" + escapeHtml(s) + "</div>";
+                }).join("") +
+                "</div>";
+        }
     }
 
     var crossHtml = crossVerified
-        ? "<div class='wolfram-cross-verify'>🔗 Cross-verified with SymPy — doubly confirmed!</div>"
+        ? "<div class='wolfram-cross-verify'>🔗 Cross-verified with Super Engine!</div>"
         : "";
 
     var uid         = "wb-" + Date.now();
@@ -354,15 +402,17 @@ function addWolframBadge(messageWrapper, answer, steps, altForms, crossVerified)
         crossHtml +
         "<div class='wolfram-details hidden' id='" + uid + "'>" +
             stepsHtml +
-            altHtml +
-            "<div class='wolfram-source-note'>Source: Wolfram Alpha — the world's most trusted computational engine</div>" +
+            "<div class='wolfram-source-note'>Source: Wolfram Alpha</div>" +
         "</div>";
 
-    var sympyBadge = messageWrapper.querySelector(".sympy-trust-badge");
-    if (sympyBadge && sympyBadge.nextSibling) {
-        messageWrapper.insertBefore(badge, sympyBadge.nextSibling);
+    var superBadge = wrapper.querySelector(".super-engine-badge");
+    var sympyBadge = wrapper.querySelector(".sympy-trust-badge");
+    var afterBadge = superBadge || sympyBadge;
+
+    if (afterBadge && afterBadge.nextSibling) {
+        wrapper.insertBefore(badge, afterBadge.nextSibling);
     } else {
-        messageWrapper.insertBefore(badge, messageWrapper.firstChild);
+        wrapper.insertBefore(badge, wrapper.firstChild);
     }
 }
 
@@ -388,7 +438,8 @@ async function verifyAndShowBadge(question, aiAnswer, messageWrapper) {
             body:    JSON.stringify({
                 question:  question,
                 ai_answer: aiAnswer.substring(0, 1000),
-                topic:     (typeof detectTopic === "function" ? detectTopic(question) : null) || "general"
+                topic:     (typeof detectTopic === "function"
+                    ? detectTopic(question) : null) || "general"
             })
         });
 
@@ -449,8 +500,7 @@ async function handleGraph(message) {
         addGraph(data);
         setTimeout(function() {
             if (typeof speakText === "function") {
-                speakText("I have plotted the graph of " + (data.label || message) +
-                    ". You can see the curve on your screen!");
+                speakText("I have plotted the graph of " + (data.label || message) + "!");
             }
         }, 600);
     } else {
@@ -489,9 +539,7 @@ async function handleImage(message) {
             if (msg.includes(colorList[ci])) { color = colorList[ci]; break; }
         }
 
-
-        
-     body = {
+        body = {
             action:    "draw_shape",
             shape:     shape,
             sides:     sides,
@@ -541,7 +589,6 @@ async function handleImage(message) {
             safeAddMessage("Could not generate image: " + (data.error || "Unknown error"));
         }
     } catch (e) {
-        console.error("Image error:", e);
         safeAddMessage("Could not display image. Please try again.");
     }
 }
